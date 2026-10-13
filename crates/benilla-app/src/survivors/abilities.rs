@@ -812,3 +812,139 @@ pub(super) fn apply_hits(
         }
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Instant;
+
+    struct Xor(u64);
+    impl Xor {
+        fn next(&mut self) -> u64 {
+            let mut x = self.0;
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            self.0 = x;
+            x
+        }
+        fn range(&mut self, lo: f32, hi: f32) -> f32 {
+            lo + (self.next() as f32 / u64::MAX as f32) * (hi - lo)
+        }
+    }
+
+    fn field(world: &mut World, n: usize, seed: u64) -> Vec<Foe> {
+        let mut rng = Xor(seed);
+        let mut foes = Vec::with_capacity(n);
+        for _ in 0..n {
+            let pos = Vec3::new(rng.range(-60.0, 60.0), 0.0, rng.range(-60.0, 60.0));
+            foes.push(Foe {
+                e: world.spawn_empty().id(),
+                pos,
+                hp: rng.range(1.0, 500.0),
+                dist: flat(pos).length(),
+                radius: 0.6,
+            });
+        }
+        foes.sort_by(|a, b| a.dist.total_cmp(&b.dist));
+        foes
+    }
+
+    fn sorted_entities(foes: &[Foe]) -> Vec<Entity> {
+        let mut v: Vec<Entity> = foes.iter().map(|f| f.e).collect();
+        v.sort();
+        v
+    }
+
+    fn naive_around(foes: &[Foe], center: Vec3, r: f32) -> Vec<Entity> {
+        let mut v: Vec<Entity> = foes
+            .iter()
+            .filter(|f| flat(f.pos - center).length() <= r + f.radius * 0.5)
+            .map(|f| f.e)
+            .collect();
+        v.sort();
+        v
+    }
+
+    fn naive_densest(foes: &[Foe], range: f32, r: f32) -> Option<Vec3> {
+        let near: Vec<&Foe> = foes.iter().filter(|f| f.dist <= range).take(40).collect();
+        near.iter()
+            .map(|f| {
+                (
+                    f.pos,
+                    near.iter()
+                        .filter(|o| flat(o.pos - f.pos).length() <= r)
+                        .count(),
+                )
+            })
+            .max_by_key(|&(_, n)| n)
+            .map(|(p, _)| p)
+    }
+
+    #[test]
+    fn around_matches_naive() {
+        let mut world = World::new();
+        let foes = field(&mut world, 1500, 0x1234);
+        let mut rng = Xor(0xabcd);
+        for _ in 0..20 {
+            let center = Vec3::new(rng.range(-40.0, 40.0), 0.0, rng.range(-40.0, 40.0));
+            let r = rng.range(2.0, 12.0);
+            assert_eq!(
+                sorted_entities(&around(&foes, center, r)),
+                naive_around(&foes, center, r)
+            );
+        }
+    }
+
+    #[test]
+    fn densest_matches_naive() {
+        let mut world = World::new();
+        let foes = field(&mut world, 1500, 0x5678);
+        let mut rng = Xor(0xef01);
+        for _ in 0..20 {
+            let range = rng.range(10.0, 40.0);
+            let r = rng.range(2.0, 8.0);
+            assert_eq!(densest(&foes, range, r), naive_densest(&foes, range, r));
+        }
+    }
+
+    #[test]
+    fn bench_targeting() {
+        let mut world = World::new();
+        let foes = field(&mut world, 1500, 0x9a);
+        let center = Vec3::new(5.0, 0.0, -7.0);
+        let iters = 200;
+        for (name, f) in [
+            (
+                "nearest",
+                Box::new(|foes: &[Foe]| {
+                    nearest(foes, 30.0, 4);
+                }) as Box<dyn Fn(&[Foe])>,
+            ),
+            (
+                "toughest",
+                Box::new(|foes: &[Foe]| {
+                    toughest(foes, 30.0, 4);
+                }),
+            ),
+            (
+                "around",
+                Box::new(|foes: &[Foe]| {
+                    around(foes, center, 8.0);
+                }),
+            ),
+            (
+                "densest",
+                Box::new(|foes: &[Foe]| {
+                    densest(foes, 30.0, 5.0);
+                }),
+            ),
+        ] {
+            let start = Instant::now();
+            for _ in 0..iters {
+                f(&foes);
+            }
+            let us = start.elapsed().as_micros() as f64 / iters as f64;
+            eprintln!("bench_targeting {name}: {us:.2} us/call over {iters} iters, 1500 foes");
+        }
+    }
+}
