@@ -15,7 +15,7 @@ const deferred = () => {
 function setup(t, fetch) {
   const children = new Map();
   const element = () => ({
-    style: {}, classList: { add() {} }, remove() {},
+    style: { setProperty() {} }, classList: { add() {} }, remove() {}, appendChild() {},
     querySelector(selector) {
       if (!children.has(selector)) children.set(selector, element());
       return children.get(selector);
