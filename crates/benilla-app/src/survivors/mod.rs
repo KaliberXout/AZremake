@@ -47,6 +47,7 @@ impl Plugin for SurvivorsPlugin {
             .init_resource::<hero::AimPoint>()
             .init_resource::<abilities::PendingHits>()
             .init_resource::<enemies::Spawner>()
+            .init_resource::<enemies::SeparationScratch>()
             .init_resource::<hud::Offer>()
             .init_resource::<cards::PendingPick>()
             .add_message::<abilities::Hit>()

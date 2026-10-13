@@ -52,6 +52,14 @@ pub(super) struct Spawner {
     timer: f32,
 }
 
+/// Scratch buffers for separation, reused every frame so the steady state allocates nothing.
+#[derive(Resource, Default)]
+pub(super) struct SeparationScratch {
+    bodies: Vec<(Entity, Vec3, f32)>,
+    cells: HashMap<(i32, i32), Vec<usize>>,
+    push: HashMap<Entity, Vec3>,
+}
+
 /// An enemy died here, worth this much.
 #[derive(Message, Clone, Copy)]
 pub(super) struct Loot {
@@ -223,47 +231,37 @@ pub(super) fn spawn_enemies(
     }
 }
 
-/// The chase: straight at the hero, pushed apart from each other, stopped by crowd control, and
-/// swinging when in reach.
-#[allow(clippy::type_complexity)]
-pub(super) fn move_enemies(
-    time: Res<Time>,
-    mut run: ResMut<Run>,
-    world: WorldPoint,
-    hero: Query<(Entity, &Transform), (With<Hero>, Without<Enemy>)>,
-    mut enemies: Query<(Entity, &mut Transform, &mut Enemy, &mut MovementState), Without<Hero>>,
-    mut fx: Fx,
-    mut hits: MessageWriter<Hit>,
-) {
-    let dt = time.delta_secs();
-    if dt <= 0.0 {
-        return;
-    }
-    let Ok((hero_e, htf)) = hero.single() else {
-        return;
-    };
-    let hpos = htf.translation;
-    let hero_down = run.dead_t.is_some();
+/// Separation over a coarse grid: only neighbours in the same or adjacent cells push.
+const SEPARATION_CELL: f32 = 3.0;
 
-    // Separation over a coarse grid: only neighbours in the same or adjacent cells push.
-    const CELL: f32 = 3.0;
-    let bodies: Vec<(Entity, Vec3, f32)> = enemies
-        .iter()
-        .filter(|(_, _, e, _)| !e.dead)
-        .map(|(ent, tf, e, _)| (ent, tf.translation, e.radius))
-        .collect();
-    let key = |p: Vec3| ((p.x / CELL).floor() as i32, (p.z / CELL).floor() as i32);
-    let mut grid: HashMap<(i32, i32), Vec<usize>> = HashMap::new();
-    for (i, b) in bodies.iter().enumerate() {
-        grid.entry(key(b.1)).or_default().push(i);
+fn separation_key(p: Vec3) -> (i32, i32) {
+    (
+        (p.x / SEPARATION_CELL).floor() as i32,
+        (p.z / SEPARATION_CELL).floor() as i32,
+    )
+}
+
+/// Push vectors per body, keyed by entity. Clears and reuses the scratch buffers, so repeated
+/// calls at a settled body count allocate nothing; the results are identical to a fresh build.
+fn separation_push(scratch: &mut SeparationScratch) -> &HashMap<Entity, Vec3> {
+    let SeparationScratch {
+        bodies,
+        cells,
+        push,
+    } = scratch;
+    for cell in cells.values_mut() {
+        cell.clear();
     }
-    let mut push: HashMap<Entity, Vec3> = HashMap::with_capacity(bodies.len());
+    for (i, b) in bodies.iter().enumerate() {
+        cells.entry(separation_key(b.1)).or_default().push(i);
+    }
+    push.clear();
     for (i, &(ent, pos, r)) in bodies.iter().enumerate() {
-        let (cx, cz) = key(pos);
+        let (cx, cz) = separation_key(pos);
         let mut acc = Vec3::ZERO;
         for dx in -1..=1 {
             for dz in -1..=1 {
-                let Some(cell) = grid.get(&(cx + dx, cz + dz)) else {
+                let Some(cell) = cells.get(&(cx + dx, cz + dz)) else {
                     continue;
                 };
                 for &j in cell {
@@ -284,6 +282,43 @@ pub(super) fn move_enemies(
         }
         push.insert(ent, acc);
     }
+    push
+}
+
+/// The chase: straight at the hero, pushed apart from each other, stopped by crowd control, and
+/// swinging when in reach.
+#[allow(clippy::type_complexity)]
+pub(super) fn move_enemies(
+    time: Res<Time>,
+    mut run: ResMut<Run>,
+    world: WorldPoint,
+    hero: Query<(Entity, &Transform), (With<Hero>, Without<Enemy>)>,
+    mut enemies: Query<(Entity, &mut Transform, &mut Enemy, &mut MovementState), Without<Hero>>,
+    mut fx: Fx,
+    mut hits: MessageWriter<Hit>,
+    mut scratch: ResMut<SeparationScratch>,
+) {
+    let dt = time.delta_secs();
+    if dt <= 0.0 {
+        return;
+    }
+    let Ok((hero_e, htf)) = hero.single() else {
+        return;
+    };
+    let hpos = htf.translation;
+    let hero_down = run.dead_t.is_some();
+
+    // Separation over a coarse grid: only neighbours in the same or adjacent cells push.
+    // The scratch buffers are cleared and reused, so a settled fight allocates nothing per
+    // frame; `cells` is only ever read by key, so reused cell lists cannot change results.
+    scratch.bodies.clear();
+    scratch.bodies.extend(
+        enemies
+            .iter()
+            .filter(|(_, _, e, _)| !e.dead)
+            .map(|(ent, tf, e, _)| (ent, tf.translation, e.radius)),
+    );
+    let push = separation_push(&mut scratch);
 
     for (ent, mut tf, mut e, mut mv) in &mut enemies {
         let e = &mut *e;
@@ -512,5 +547,150 @@ pub(super) fn still_gems(
     }
     for mut drive in &mut drives {
         drive.set_paused(true);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Instant;
+
+    struct Xor(u64);
+    impl Xor {
+        fn next(&mut self) -> u64 {
+            let mut x = self.0;
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            self.0 = x;
+            x
+        }
+        fn range(&mut self, lo: f32, hi: f32) -> f32 {
+            lo + (self.next() as f32 / u64::MAX as f32) * (hi - lo)
+        }
+    }
+
+    fn bodies(world: &mut World, n: usize, seed: u64) -> Vec<(Entity, Vec3, f32)> {
+        let mut rng = Xor(seed);
+        (0..n)
+            .map(|_| {
+                (
+                    world.spawn_empty().id(),
+                    Vec3::new(rng.range(-60.0, 60.0), 0.0, rng.range(-60.0, 60.0)),
+                    0.6,
+                )
+            })
+            .collect()
+    }
+
+    /// The old inline code, verbatim: fresh maps every call.
+    fn naive(bodies: &[(Entity, Vec3, f32)]) -> HashMap<Entity, Vec3> {
+        const CELL: f32 = 3.0;
+        let key = |p: Vec3| ((p.x / CELL).floor() as i32, (p.z / CELL).floor() as i32);
+        let mut grid: HashMap<(i32, i32), Vec<usize>> = HashMap::new();
+        for (i, b) in bodies.iter().enumerate() {
+            grid.entry(key(b.1)).or_default().push(i);
+        }
+        let mut push: HashMap<Entity, Vec3> = HashMap::with_capacity(bodies.len());
+        for (i, &(ent, pos, r)) in bodies.iter().enumerate() {
+            let (cx, cz) = key(pos);
+            let mut acc = Vec3::ZERO;
+            for dx in -1..=1 {
+                for dz in -1..=1 {
+                    let Some(cell) = grid.get(&(cx + dx, cz + dz)) else {
+                        continue;
+                    };
+                    for &j in cell {
+                        if j == i {
+                            continue;
+                        }
+                        let (_, other, or) = bodies[j];
+                        let d = flat(pos - other);
+                        let len = d.length();
+                        let min = r + or;
+                        if len < min && len > 1e-4 {
+                            acc += d / len * (min - len);
+                        } else if len <= 1e-4 {
+                            acc += Vec3::new((i as f32).sin(), 0.0, (i as f32).cos()) * 0.1;
+                        }
+                    }
+                }
+            }
+            push.insert(ent, acc);
+        }
+        push
+    }
+
+    fn run_reused(
+        bodies: &[(Entity, Vec3, f32)],
+        scratch: &mut SeparationScratch,
+    ) -> HashMap<Entity, Vec3> {
+        scratch.bodies.clear();
+        scratch.bodies.extend_from_slice(bodies);
+        separation_push(scratch).clone()
+    }
+
+    #[test]
+    fn separation_matches_fresh_build() {
+        let mut world = World::new();
+        let bodies = bodies(&mut world, 1500, 0x51);
+        let mut scratch = SeparationScratch::default();
+        let fresh = naive(&bodies);
+        let reused = run_reused(&bodies, &mut scratch);
+        assert_eq!(fresh.len(), reused.len());
+        for (e, v) in &fresh {
+            assert_eq!(*v, reused[e]);
+        }
+    }
+
+    #[test]
+    fn separation_reuse_holds_capacities() {
+        let mut world = World::new();
+        let bodies = bodies(&mut world, 1500, 0x77);
+        let mut scratch = SeparationScratch::default();
+        let first = run_reused(&bodies, &mut scratch);
+        let caps = (
+            scratch.bodies.capacity(),
+            scratch.push.capacity(),
+            scratch.cells.len(),
+            scratch.cells.values().map(Vec::len).sum::<usize>(),
+            scratch.cells.values().map(Vec::capacity).sum::<usize>(),
+        );
+        for _ in 0..3 {
+            let again = run_reused(&bodies, &mut scratch);
+            assert_eq!(first.len(), again.len());
+            for (e, v) in &first {
+                assert_eq!(*v, again[e]);
+            }
+        }
+        assert_eq!(
+            caps,
+            (
+                scratch.bodies.capacity(),
+                scratch.push.capacity(),
+                scratch.cells.len(),
+                scratch.cells.values().map(Vec::len).sum::<usize>(),
+                scratch.cells.values().map(Vec::capacity).sum::<usize>(),
+            )
+        );
+    }
+
+    #[test]
+    fn bench_separation() {
+        let mut world = World::new();
+        let bodies = bodies(&mut world, 1500, 0x9e);
+        let mut scratch = SeparationScratch::default();
+        let iters = 50;
+        let start = Instant::now();
+        for _ in 0..iters {
+            let _ = naive(&bodies);
+        }
+        let fresh = start.elapsed().as_micros() as f64 / iters as f64;
+        let start = Instant::now();
+        for _ in 0..iters {
+            let _ = run_reused(&bodies, &mut scratch);
+        }
+        let reused = start.elapsed().as_micros() as f64 / iters as f64;
+        eprintln!("bench_separation fresh: {fresh:.2} us/call, reused: {reused:.2} us/call over {iters} iters, 1500 bodies");
     }
 }
