@@ -167,21 +167,27 @@ fn toughest(foes: &[Foe], range: f32, n: usize) -> Vec<Foe> {
 }
 
 fn around(foes: &[Foe], center: Vec3, r: f32) -> Vec<Foe> {
+    // Squared comparison: identical results to `length() <= bound` with no sqrt.
     foes.iter()
-        .filter(|f| flat(f.pos - center).length() <= r + f.radius * 0.5)
+        .filter(|f| {
+            let bound = r + f.radius * 0.5;
+            flat(f.pos - center).length_squared() <= bound * bound
+        })
         .copied()
         .collect()
 }
 
 /// The point among the nearest enemies in range with the most others within `r` of it.
 fn densest(foes: &[Foe], range: f32, r: f32) -> Option<Vec3> {
+    // Squared inner comparison: identical results with no sqrt per pair.
+    let r_sq = r * r;
     let near: Vec<&Foe> = foes.iter().filter(|f| f.dist <= range).take(40).collect();
     near.iter()
         .map(|f| {
             (
                 f.pos,
                 near.iter()
-                    .filter(|o| flat(o.pos - f.pos).length() <= r)
+                    .filter(|o| flat(o.pos - f.pos).length_squared() <= r_sq)
                     .count(),
             )
         })
@@ -812,6 +818,7 @@ pub(super) fn apply_hits(
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
