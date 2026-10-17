@@ -531,3 +531,139 @@ pub(super) fn choose_card(
         pending.0 = Some((i, 0.0));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::survivors::hud::Choice;
+    use crate::survivors::Owned;
+
+    fn run_for(id: u8) -> Run {
+        Run {
+            class: data::CLASSES.iter().find(|c| c.id == id).expect("class"),
+            ..Run::default()
+        }
+    }
+
+    fn owned(def: &'static data::AbilityDef, level: u8) -> Owned {
+        Owned {
+            def,
+            level,
+            cd: 0.0,
+        }
+    }
+
+    fn first_of(kind: Kind) -> &'static data::AbilityDef {
+        data::ABILITIES
+            .iter()
+            .find(|d| d.kind == kind)
+            .expect("an ability of that kind")
+    }
+
+    #[test]
+    fn the_top_rank_is_legendary_whatever_the_spell() {
+        let mut run = run_for(8);
+        run.abilities = vec![owned(first_of(Kind::Nova), data::MAX_ABILITY_LEVEL - 1)];
+        assert_eq!(rarity(Choice::Upgrade(0), &run), Rarity::Legendary);
+    }
+
+    #[test]
+    fn a_rank_that_adds_targets_is_epic_for_target_spells_only() {
+        let mut run = run_for(8);
+        run.abilities = vec![owned(first_of(Kind::Bolt), 2)];
+        assert_eq!(
+            rarity(Choice::Upgrade(0), &run),
+            Rarity::Epic,
+            "rank 3 adds a target"
+        );
+
+        let mut run = run_for(8);
+        run.abilities = vec![owned(first_of(Kind::Nova), 2)];
+        assert_eq!(
+            rarity(Choice::Upgrade(0), &run),
+            Rarity::Uncommon,
+            "a nova gains no target"
+        );
+
+        let mut run = run_for(8);
+        run.abilities = vec![owned(first_of(Kind::Bolt), 1)];
+        assert_eq!(rarity(Choice::Upgrade(0), &run), Rarity::Uncommon);
+    }
+
+    #[test]
+    fn passive_ranks_climb_from_common_to_epic() {
+        let mut run = run_for(8);
+        let p = data::PASSIVES
+            .iter()
+            .find(|p| p.key == "might")
+            .expect("might");
+        let tiers: Vec<Rarity> = (1..data::MAX_PASSIVE_LEVEL)
+            .map(|level| {
+                run.passives = vec![(p, level)];
+                rarity(Choice::UpPassive(0), &run)
+            })
+            .collect();
+        assert_eq!(
+            tiers,
+            [Rarity::Common, Rarity::Uncommon, Rarity::Rare, Rarity::Epic]
+        );
+    }
+
+    #[test]
+    fn heal_is_common_and_a_new_passive_uncommon() {
+        let run = run_for(8);
+        assert_eq!(rarity(Choice::Heal, &run), Rarity::Common);
+        let p = &data::PASSIVES[0];
+        assert_eq!(rarity(Choice::NewPassive(p), &run), Rarity::Uncommon);
+    }
+
+    #[test]
+    fn defensive_spells_sit_in_the_middle() {
+        let run = run_for(8);
+        for kind in [Kind::Shield, Kind::Immune, Kind::Thorns, Kind::Heal] {
+            let def = first_of(kind);
+            assert_eq!(
+                rarity(Choice::NewAbility(def), &run),
+                Rarity::Rare,
+                "{kind:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn in_each_class_the_strongest_new_spell_is_epic_and_the_weakest_uncommon() {
+        for class in data::CLASSES {
+            let run = run_for(class.id);
+            let mut ranked: Vec<(f32, &'static data::AbilityDef)> = class
+                .pool
+                .iter()
+                .filter_map(|k| {
+                    let def = data::ability(k);
+                    power(def).map(|p| (p, def))
+                })
+                .collect();
+            if ranked.len() < 3 {
+                continue;
+            }
+            ranked.sort_by(|a, b| a.0.total_cmp(&b.0));
+            let (lo, hi) = (ranked[0], ranked[ranked.len() - 1]);
+            if ranked[ranked.len() - 2].0 == hi.0 || ranked[1].0 == lo.0 {
+                continue; // a tie has no single strongest or weakest spell
+            }
+            assert_eq!(
+                rarity(Choice::NewAbility(hi.1), &run),
+                Rarity::Epic,
+                "{}: {}",
+                class.name,
+                hi.1.key
+            );
+            assert_eq!(
+                rarity(Choice::NewAbility(lo.1), &run),
+                Rarity::Uncommon,
+                "{}: {}",
+                class.name,
+                lo.1.key
+            );
+        }
+    }
+}

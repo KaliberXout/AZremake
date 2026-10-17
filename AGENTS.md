@@ -1,32 +1,95 @@
 # Working in this repository
 
-wenilla is a fork of [samwhosung/benilla](https://github.com/samwhosung/benilla), a from-scratch
-WoW 1.12.1 client in Rust + Bevy, that adds a browser build and a realm service to host it. The
-fork rides on upstream: upstream is merged into `main` as it publishes, and our own work lives
-on the same branch alongside it. This file is the map for a person or an agent who has to build,
-fix or ship something here. The path from a merge to a running realm is documented in
-[wenilla-realm/docs/RELEASE.md](https://github.com/Arnesen/wenilla-realm/blob/main/docs/RELEASE.md);
-syncing upstream is [docs/UPSTREAM.md](docs/UPSTREAM.md). Upstream's own map and rules for the
-client crates are `docs/METHOD.md`, `docs/MAP.md` and `docs/CONTRIBUTING.md`; read them before
-changing client code, and treat this file as authoritative for the fork's crates and process.
+This is Azeroth Survivors: a single-player, offline, WoW-inspired survivors game built on a
+from-scratch WoW 1.12.1 client engine in Rust + Bevy. It forks
+[samwhosung/benilla](https://github.com/samwhosung/benilla) (the engine) and
+[Arnesen/wenilla](https://github.com/Arnesen/wenilla) (the browser build). Upstream is merged in,
+not copied; see [docs/UPSTREAM.md](docs/UPSTREAM.md). Upstream's rules for the client crates are in
+`docs/METHOD.md`, `docs/MAP.md` and `docs/CONTRIBUTING.md`. Read them before changing engine code.
+This file is authoritative for this fork's goals, crates and process.
+
+## Goals (read these first)
+
+1. **Native Windows 11 x64 first.** The survivors game (`warcraft-survivors.exe`) is the product.
+   Build and run it with `scripts/windows/survivors.ps1`. Keep the browser build working where
+   practical, but do not let it drive decisions for the native path.
+2. **Fully offline, single-player Survivors.** No server, no login, no account, no network
+   gameplay. The survivors mode does not use the realm protocol.
+3. **Keep the Rust/Bevy architecture.** Gameplay rules are plain Rust. Presentation is Bevy
+   systems. Keep the two separable: pure rules get unit tests.
+4. **Incremental changes.** Small, reviewable commits. No engine rewrites, no speculative
+   abstractions. Content-architecture work is a proposal until a phase says otherwise
+   (`docs/content-architecture-proposal.md`).
+5. **Tests for behavioural changes.** A change to survivors rules adds or updates a test in
+   `crates/benilla-app/src/survivors/` (see "Testing" below).
+6. **No telemetry or unnecessary online services.** Do not add analytics, crash upload, update
+   checks, or remote config. The only outbound traffic is the explicit data and toolchain downloads
+   in the scripts, and those need a pinned checksum before they are trusted (see
+   [docs/security-review.md](docs/security-review.md)).
+7. **Never commit proprietary game assets, credentials, or large generated files.** The WoW 1.12.1
+   client is supplied by the user at runtime. See "Protected content" below.
+
+Phase planning and the current baseline are in `docs/architecture-baseline.md`,
+`docs/security-review.md`, `docs/windows-development.md` and `docs/survivors-smoke-test.md`.
 
 ## What lives where
 
 | path | what | whose |
 |---|---|---|
-| `crates/benilla-*` | the client: formats, world, UI, protocol, app | upstream's, plus our `#[cfg]`-gated carries |
+| `crates/warcraft-survivors` | the survivors launcher (`warcraft-survivors.exe`) | ours |
+| `crates/benilla-app/src/survivors/` | the survivors mode: rules, HUD, menu, tests | ours |
+| `crates/benilla-app/src/lib.rs` `run_survivors` | the survivors entry; checks the WoW install first | ours |
+| `crates/benilla-*` | the client engine: formats, world, UI, protocol, app | upstream's, plus our `#[cfg]`-gated carries |
 | `crates/benilla-app/src/webbridge/` | the JavaScript bridge, wasm side | ours |
 | `crates/wenilla` | the wasm entry crate (`#[wasm_bindgen(start)]`) | ours |
 | `crates/wenilla-host` | local dev server: static files, `/data/*`, `/ws/*` relay. Loopback only. | ours |
-| `crates/wenilla-realm` | the realm service: login, play page, admin panel, relay. This runs in prod. | ours |
-| `crates/wenilla-realm/templates/play.html` | the realm's player page (Askama, compiled into the binary) | ours |
 | `web/` | the page side: `index.html` (dev page), `boot.js`, `platform.js`, `bridge.js`, `examples/`, `wasi_stubs.js` | ours |
+| `scripts/windows/survivors.ps1` | native Windows: check, test, lint, build, run the survivors game | ours |
+| `scripts/windows/smoke-survivors.ps1` | native smoke test and performance baseline, against a Data folder you supply | ours |
 | `scripts/web-setup.sh`, `scripts/web-build.sh` | toolchain and build for the wasm | ours |
-| `third_party/mlua-sys` | Lua 5.1's C build for wasm | ours (vendored) |
-| `.github/workflows/check.yml` | the PR gate: wasm check + realm tests | ours |
-| `.github/workflows/bump-realm-pin.yml` | tells wenilla-realm about every new `main` head | ours |
+| `third_party/lua-src`, `third_party/mlua-sys`, `third_party/kira` | vendored and patched; each has a `BENILLA.md` | ours (vendored) |
+| `.github/workflows/survivors-windows.yml` | the Windows survivors gate (tests, no-data launch check) | ours |
+| `.github/workflows/check.yml` | the wasm check and the host and client-carry tests | ours |
+| `.github/workflows/ci.yml` | fmt, clippy, tests and doc gates on Linux for fork pull requests | upstream's, adapted |
+
+`crates/wenilla-realm` (the realm service) is **not** in this checkout. Any older note that refers
+to it describes a separate repository and does not apply here.
+
+Survivors needs the engine core: `benilla-world`, `benilla-formats`, `benilla-assets`,
+`benilla-protocol` (only the object-field types), `benilla-ui` (only the nameplate helper),
+`benilla-mpq`, `benilla-blp`, `benilla-m2`, `benilla-wmo`, `benilla-adt`, `benilla-dbc`, and the
+`net`, `creature_anim`, `glue` and `loading_screen` modules of `benilla-app`. The login, chat,
+FrameXML and realm modules are compiled in but unused by survivors. Do not remove them as part of
+survivors work; see `docs/architecture-baseline.md` section 3.
 
 ## Commands
+
+Native Windows (PowerShell 5.1 or 7; no Git Bash, no `make`):
+
+```powershell
+.\scripts\windows\survivors.ps1 -Action Check                 # toolchain, MSVC, WoW data, cargo check
+.\scripts\windows\survivors.ps1 -Action Test                  # survivors unit tests + no-data launch check
+.\scripts\windows\survivors.ps1 -Action Lint                  # rustfmt + clippy for the survivors crates
+.\scripts\windows\survivors.ps1 -Action Build -Release        # warcraft-survivors.exe (release)
+.\scripts\windows\survivors.ps1 -Action Run -DataDir <Data>   # play; <Data> is a WoW 1.12.1 Data folder you own
+.\scripts\windows\smoke-survivors.ps1 -DataDir <Data> -Release # native smoke test + perf baseline; writes target\smoke\<stamp>\report.md
+```
+
+Cargo directly, from the repository root:
+
+```bash
+cargo check -p warcraft-survivors                 # the native survivors binary
+cargo test -p benilla-app --lib survivors         # survivors unit tests and headless simulation (no game data needed)
+cargo fmt --all -- --check                        # fails on pre-existing drift in 13 files; see docs/windows-development.md
+cargo clippy --workspace --all-targets -- -D warnings   # the Windows clippy gate; passes, see docs/testing.md
+cargo run --release -p warcraft-survivors         # needs WOW_DATA or a WoW/Data folder in the repo
+cargo survivors                                   # alias for the dev-profile run (.cargo/config.toml)
+```
+
+The workspace clippy gate passes on Windows and needs no game data. Do not add a platform split
+to pass a lint: a platform-dependent fix must be checked on macOS and wasm too (see Invariants).
+
+Browser build (bash: Linux, macOS, or Git Bash on Windows; this path is secondary):
 
 ```bash
 scripts/web-setup.sh        # once per machine: wasm target, wasm-bindgen-cli at Cargo.lock's exact version, wasi-sdk, binaryen. No sudo.
@@ -35,10 +98,13 @@ cargo run --release -p wenilla-host -- --www web/dist --data /path/to/WoW/Data -
                             # http://127.0.0.1:8090/ — needs a realmd:3724 and mangosd:8085 at --upstream
 cargo check --target wasm32-unknown-unknown -p wenilla --no-default-features --features webgpu
                             # the wasm build without linking; what check.yml runs
-cargo check --workspace --all-targets      # native (Debian/Ubuntu: libasound2-dev libudev-dev)
-cargo test -p wenilla-realm                # the realm service end to end, mock SOAP, sqlite; no game data needed
-cargo test --workspace                     # ~320 tests need a 1.12.1 patch chain and fail without one, on pristine upstream too
+cargo test -p wenilla-host                # the host's cache and relay tests
+node --test web/tests/*.test.mjs          # browser startup and journal regressions
 ```
+
+`make` targets (`make build`, `make start`, `make native`) are for Linux, macOS and Git Bash. The
+`native` target needs GNU make, bash, curl and unzip, and it downloads the game data. On Windows,
+use `scripts/windows/survivors.ps1`, which downloads nothing.
 
 A browser for testing needs WebGPU; the world does not run without it. Linux Chrome needs
 `--enable-unsafe-webgpu`. Without an adapter the client aborts in
@@ -51,49 +117,91 @@ google-chrome --user-data-dir=/tmp/wenilla-chrome --enable-unsafe-webgpu --remot
 
 ## Invariants
 
+- **Protected content.** Never commit WoW client files, MPQs, extracted assets, `WoW/`, `wow-data/`,
+  `wow-addons-vanilla/`, `.probe-identity` (credentials), or `benilla-config/` (local state). All
+  are gitignored. Never add a download that fetches the client. The user supplies it with
+  `WOW_DATA` or `-DataDir`.
+- **Local state.** Only `crates/benilla-app/src/local_state.rs` computes paths into
+  `benilla-config/`. New persistent state goes through it.
+- **Dependencies.** Do not add a dependency without a reason in the commit message. Do not add a
+  git dependency. Keep `Cargo.lock` committed. Do not add a procedural macro of our own without a
+  review.
+- **Warnings are not suppressed globally.** A lint is fixed, or allowed on the one item where the
+  allow is justified and commented. Never add `#![allow]` at crate or workspace level to pass a gate.
 - **Carries are `#[cfg]`-gated or in our own files.** A change inside an upstream file goes
   under `#[cfg(target_arch = "wasm32")]` or `cfg(not(target_os = "macos"))`, or into a new
   file. The next upstream merge conflicts on every upstream line a carry touches, so touch few.
 - **Upstream is merged, never copied.** A sync is a real merge commit with `upstream/main` as
   its second parent. A single-parent content copy loses the ancestry and re-raises every
   conflict at the next sync. See docs/UPSTREAM.md.
-- **`main`'s head is what prod builds.** A push to `main` makes the pin bot write the sha into
-  wenilla-realm's `upstreams.env`, and its CI builds the images. Do not merge to `main` what you
-  would not ship. `main` accepts PRs only and cannot be force-pushed (repository ruleset).
 - **Never press GitHub's "Sync fork" button.** On a diverged fork its "discard commits" path
   hard-resets `main`. Sync through a PR.
+- **Mind the platform-dependent code.** A change that is correct only on Windows can break macOS
+  or wasm (for example `rig_anim/compose.rs` returns a different type per target). Check the other
+  targets' `cfg` branches before "fixing" a lint on one target.
 - **What ships is the `cp` line in `scripts/web-build.sh`.** A page-side file that is not on it
-  never reaches `web/dist`, so never reaches the realm image. `play.html` imports page modules
-  dynamically and never load-bearing, so a missing file is a console warning, not a black canvas.
-- **Two pages, not one.** `web/index.html` is the dev page (`wenilla-host`); the realm's players
-  see `crates/wenilla-realm/templates/play.html`. A page feature exists only where it was added.
+  never reaches `web/dist`. `play.html` imports page modules dynamically and is never
+  load-bearing, so a missing file is a console warning, not a black canvas.
+- **Two pages, not one.** `web/index.html` is the dev page (`wenilla-host`). A page feature exists
+  only where it was added.
 - **`wasm-bindgen` crate and CLI versions must match exactly**; `web-setup.sh` enforces it.
 - **No threads, no std time on wasm.** `std::time::Instant`, `SystemTime` and `env::vars_os`
   panic there; use `bevy::platform::time::Instant` or `web-time`. Upstream has no CI and never
   builds the wasm target, so a wasm-only break in an upstream change is caught only by
   `check.yml` or your own `cargo check --target wasm32…`.
+- **Survivors rules are deterministic.** Randomness comes from the mode's `Rng` resource, which
+  tests seed with `Rng::seeded`. Do not read the clock inside a rule.
 - **`ring_reaction` returns 0..7**; every consumer adds `+ 1` for the Lua 1..8 scale.
-- **Askama templates compile at build time.** A broken `play.html` fails `cargo build -p wenilla-realm`.
-- **`gh pr create` needs `-R Arnesen/wenilla`.** Without it `gh` targets the fork's parent,
-  where pull requests are closed.
+- **`gh pr create` needs `-R <owner>/<repo>` for this fork.** Without it `gh` targets the parent
+  repository, where pull requests may be closed.
+
+## Testing
+
+Full layers, commands and acceptance criteria are in `docs/testing.md`. The rules for a change:
+
+- A change to survivors rules adds a test. Pure rules (damage, cooldowns, XP, rarity, offers,
+  slots, schedules, scaling, targeting) live in `crates/benilla-app/src/survivors/tests.rs` or in
+  an in-file `#[cfg(test)] mod tests` next to private helpers.
+- A change to the run loop, the clock, the boss schedule, or the victory and death paths also keeps
+  the headless simulation passing (`survivors/sim.rs`, the `scenarios` module). The simulation runs the
+  production schedule (`add_run_loop`) on a manual clock, so a whole 900-second run takes about 2
+  seconds and needs no assets. Do not write a second model of the game engine to test it.
+- Tests use `Rng::seeded` and fixed values. They must not need WoW data, a window, or the clock.
+- Prefer extracting a pure function from a Bevy system over testing through the ECS. Keep the
+  extraction behaviour-preserving, and keep the call site as the only change in the system.
+- Run `.\scripts\windows\survivors.ps1 -Action Test` before a survivors change is pushed.
+- Data-gated tests use `wow_data_or_skip!` and skip without data. `BENILLA_REQUIRE_DATA=1` turns a
+  skip into a failure on a machine that has the data.
+- The native smoke test (`scripts/windows/smoke-survivors.ps1`) needs a Data folder you own. It is
+  not part of CI. Run it on a Windows machine before changing combat, levelling, bosses or the
+  results screens, and read its `report.md` for the manual checks it lists.
+- Performance runs must not set a `WOW_FPS_*` variable without `WOW_BG=0`. Any `WOW_FPS_*` variable
+  marks the run as a background run, which forces a 640x360 unfocused window and measures the wrong
+  thing. `smoke-survivors.ps1` sets both.
 
 ## How a change ships
 
-1. Branch from `main`, open the PR against `Arnesen/wenilla`. `check.yml` runs the wasm check
-   and the realm tests.
-2. Merge. Squash is fine for ordinary work; a sync PR must be merged with a merge commit.
-3. Within a minute the pin bot commits `WENILLA_COMMIT=<sha>` to wenilla-realm. About 25
-   minutes later `ghcr.io/arnesen/wenilla-realm:latest` is the new build and the smoke job has
-   booted it.
-4. The operator runs `./realmctl update` on the VM. Nothing deploys itself.
+1. Branch from the current phase branch (or `main` once the phase lands). Open the pull request
+   against this repository.
+2. The PR gates run: `survivors-windows.yml` (Windows survivors tests and the no-data launch
+   check), `check.yml` (wasm check, host and UI tests, client-carry tests) and `ci.yml` (fmt,
+   clippy, tests and doc links on Linux, for fork pull requests).
+3. Keep the commit message explicit about any dependency, any warning fixed or allowed, and any
+   change to a platform branch.
+4. Nothing deploys itself. The native game runs from a local build.
 
 ## Where to look when
 
 | symptom | look at |
 |---|---|
+| the game exits at start with "needs a WoW 1.12.1 Data folder" | point `WOW_DATA` or `-DataDir` at a folder that holds `terrain.MPQ` and `patch.MPQ` |
+| the game opens and sits on a loading screen | the install is incomplete or missing; check the stderr for `Asset Source 'mpq' does not exist` |
+| a survivors rule seems wrong | the rule's test in `survivors/tests.rs`; the numbers are in `survivors/data.rs` |
+| `cargo build` fails to link on Windows | run `-Action Check`; confirm Visual Studio has the C++ workload and a Windows SDK |
 | the wasm panics at boot with `RuntimeError: unreachable` | rebuild with `WEB_DEBUG=1`; check for a WebGPU adapter first; `?bridge=0` rules the bridge out |
 | a page feature works on the dev page and not on the realm | the `cp` line in `web-build.sh`, then `play.html` vs `index.html` |
 | wasm-bindgen glue errors at load | version drift: rerun `scripts/web-setup.sh` |
+
 | an upstream merge broke only the wasm build | `cargo check --target wasm32…`; the `cvars.rs` struct-vs-tuple case is the pattern |
 | no sound in the browser | both pages resume the AudioContext on the first gesture; the per-target mixer backend is our carry in `sound/mixer.rs` |
 | the world freezes ~200 ms at zone lines | the soundscape carry (`sound/zone.rs`, `sound/web_load.rs`), wasm-only |

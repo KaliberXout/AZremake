@@ -333,13 +333,14 @@ impl RigPalettes {
 
     /// The collapsed lane's row write, `frame × ibp` over frames the world pass composed from a
     /// zero-translation root, so the rows are exact at rig scale.
-    pub(crate) fn write_rig_worlds(
+    pub(crate) fn write_rig_worlds<W: AsRef<[GlobalTransform]> + ?Sized>(
         &mut self,
         rig: &RigSkin,
-        worlds: &[GlobalTransform],
+        worlds: &W,
         ibp: &[Mat4],
         origin: Vec3,
     ) {
+        let worlds = worlds.as_ref();
         let n = (worlds.len().min(ibp.len()) as u32).min(rig.len);
         let (slot, base) = (rig.slot, rig.base);
         self.cost_rows += n;

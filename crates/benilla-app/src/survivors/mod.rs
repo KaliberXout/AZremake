@@ -12,10 +12,17 @@ mod enemies;
 mod grade;
 mod hero;
 mod hud;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod install;
 mod menu;
 mod minimap;
 mod mobility;
 mod units;
+
+#[cfg(test)]
+mod sim;
+#[cfg(test)]
+mod tests;
 
 use benilla_world::schedule::WorldStage;
 use bevy::prelude::*;
@@ -49,8 +56,6 @@ impl Plugin for SurvivorsPlugin {
             .init_resource::<enemies::Spawner>()
             .init_resource::<hud::Offer>()
             .init_resource::<cards::PendingPick>()
-            .add_message::<abilities::Hit>()
-            .add_message::<enemies::Loot>()
             .add_plugins(bevy::ui_render::UiMaterialPlugin::<hud::SweepUiMaterial>::default())
             .add_systems(Startup, hud::setup_hud)
             .add_systems(Update, hero::daylight)
@@ -64,29 +69,6 @@ impl Plugin for SurvivorsPlugin {
                 )
                     .chain()
                     .in_set(WorldStage::Input),
-            )
-            .add_systems(
-                Update,
-                (
-                    enemies::spawn_enemies,
-                    enemies::move_enemies,
-                    abilities::cast_abilities,
-                    abilities::tick_areas,
-                    abilities::apply_hits,
-                    enemies::tick_marks,
-                    enemies::drop_loot,
-                    enemies::collect_gems,
-                    hero::hero_vitals,
-                )
-                    .chain()
-                    .after(WorldStage::Input)
-                    .run_if(in_state(Phase::Playing))
-                    // Entering a battleground raises its loading screen: the run waits behind it.
-                    .run_if(|l: Res<crate::loading_screen::LoadingScreen>| !l.covering()),
-            )
-            .add_systems(
-                Update,
-                (enemies::reap_dead, enemies::still_gems).after(WorldStage::Input),
             )
             .add_systems(
                 Update,
@@ -128,11 +110,9 @@ impl Plugin for SurvivorsPlugin {
                     .chain()
                     .after(hud::show_panels),
             )
-            .add_systems(OnEnter(Phase::Playing), unpause)
-            .add_systems(OnEnter(Phase::LevelUp), (pause, hud::roll_offer))
             .add_systems(OnEnter(Phase::Paused), pause)
-            .add_systems(OnEnter(Phase::GameOver), unpause)
             .add_systems(OnEnter(Phase::Menu), (unpause, reset_run));
+        add_run_loop(app);
         if let Some(auto) = auto::from_env() {
             app.insert_resource(auto)
                 .add_systems(
@@ -365,6 +345,17 @@ impl Default for Rng {
 }
 
 impl Rng {
+    /// A fixed stream, so a test's dice come out the same every run. Only zero is remapped, since
+    /// the xorshift state must not be zero; `seed | 1` would make seeds 2k and 2k+1 identical.
+    #[cfg(test)]
+    pub(super) fn seeded(seed: u64) -> Self {
+        Self(if seed == 0 {
+            0x9E37_79B9_7F4A_7C15
+        } else {
+            seed
+        })
+    }
+
     pub fn next_u64(&mut self) -> u64 {
         let mut x = self.0;
         x ^= x >> 12;
@@ -391,6 +382,40 @@ fn pause(mut time: ResMut<Time<Virtual>>) {
 
 fn unpause(mut time: ResMut<Time<Virtual>>) {
     time.unpause();
+}
+
+/// The run's loop: the gameplay systems that act while a run plays, the reap of the dead, and the
+/// transitions that pause the clock on a level-up and resume it after. The plugin and the headless
+/// simulation (`sim`) both add exactly this, so the simulation runs the schedule the game runs.
+fn add_run_loop(app: &mut App) {
+    app.add_message::<abilities::Hit>()
+        .add_message::<enemies::Loot>()
+        .add_systems(
+            Update,
+            (
+                enemies::spawn_enemies,
+                enemies::move_enemies,
+                abilities::cast_abilities,
+                abilities::tick_areas,
+                abilities::apply_hits,
+                enemies::tick_marks,
+                enemies::drop_loot,
+                enemies::collect_gems,
+                hero::hero_vitals,
+            )
+                .chain()
+                .after(WorldStage::Input)
+                .run_if(in_state(Phase::Playing))
+                // Entering a battleground raises its loading screen: the run waits behind it.
+                .run_if(|l: Res<crate::loading_screen::LoadingScreen>| !l.covering()),
+        )
+        .add_systems(
+            Update,
+            (enemies::reap_dead, enemies::still_gems).after(WorldStage::Input),
+        )
+        .add_systems(OnEnter(Phase::Playing), unpause)
+        .add_systems(OnEnter(Phase::LevelUp), (pause, hud::roll_offer))
+        .add_systems(OnEnter(Phase::GameOver), unpause);
 }
 
 /// Back at the menu: everything the last run spawned goes, and the run starts over.

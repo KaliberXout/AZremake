@@ -75,7 +75,7 @@ pub(crate) fn write_rig_riders(
             Some((own, skin, ibp)) => {
                 scratch.clear();
                 scratch.extend(own.model.iter().map(|m| GlobalTransform::from(frame * *m)));
-                palettes.write_rig_worlds(skin, &scratch, ibp, origin);
+                palettes.write_rig_worlds(skin, &scratch[..], ibp, origin);
             }
             None => palettes.write_rider(rider.slot, frame, origin),
         }

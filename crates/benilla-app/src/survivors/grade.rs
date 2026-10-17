@@ -72,10 +72,10 @@ pub(super) fn plugin(app: &mut App) {
         .add_systems(Update, (attach, toggle, drive).chain());
 }
 
-fn attach(
-    mut commands: Commands,
-    cams: Query<Entity, (With<WorldCamera>, With<Camera3d>, Without<Grade>)>,
-) {
+/// The cameras the grade attaches to: the world's, not the UI's.
+type WorldCameraFilter = (With<WorldCamera>, With<Camera3d>, Without<Grade>);
+
+fn attach(mut commands: Commands, cams: Query<Entity, WorldCameraFilter>) {
     for e in &cams {
         commands.entity(e).insert(Grade::default());
     }

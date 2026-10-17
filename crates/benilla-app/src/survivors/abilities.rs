@@ -193,6 +193,15 @@ fn entities(foes: &[Foe]) -> Vec<Entity> {
     foes.iter().map(|f| f.e).collect()
 }
 
+/// A hit's damage once an execute has had its say: below its threshold, on a creature that is not
+/// a boss, it deals whatever health is left.
+fn execute_damage(damage: f32, effect: Effect, hp: f32, max_hp: f32, boss: bool) -> f32 {
+    match effect {
+        Effect::Execute(threshold) if !boss && hp / max_hp <= threshold => damage.max(hp),
+        _ => damage,
+    }
+}
+
 pub(super) fn cast_abilities(
     mut commands: Commands,
     time: Res<Time>,
@@ -732,12 +741,7 @@ pub(super) fn apply_hits(
         if en.dead {
             continue;
         }
-        let mut dmg = h.damage;
-        if let Effect::Execute(threshold) = h.effect {
-            if !en.boss && en.hp / en.max_hp <= threshold {
-                dmg = dmg.max(en.hp);
-            }
-        }
+        let dmg = execute_damage(h.damage, h.effect, en.hp, en.max_hp, en.boss);
         if dmg > 0.0 {
             en.hp -= dmg;
             run.damage_done += f64::from(dmg);
@@ -809,6 +813,128 @@ pub(super) fn apply_hits(
                 marks.clear();
                 marks.flush(e, guid.0, &mut store, &mut fields);
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::survivors::data::Effect;
+
+    fn foe(n: u32, dist: f32, hp: f32) -> Foe {
+        Foe {
+            e: Entity::from_raw_u32(n).expect("a valid index"),
+            pos: Vec3::new(dist, 0.0, 0.0),
+            hp,
+            dist,
+            radius: 0.5,
+        }
+    }
+
+    fn ids(foes: &[Foe]) -> Vec<u32> {
+        foes.iter().map(|f| f.e.index_u32()).collect()
+    }
+
+    #[test]
+    fn nearest_takes_the_closest_within_reach_in_order() {
+        let foes = [
+            foe(1, 1.0, 1.0),
+            foe(2, 2.0, 1.0),
+            foe(3, 5.0, 1.0),
+            foe(4, 10.4, 1.0),
+            foe(5, 10.6, 1.0),
+            foe(6, 30.0, 1.0),
+        ];
+        assert_eq!(ids(&nearest(&foes, 10.0, 3)), [1, 2, 3]);
+        // Reach is range plus the target's radius (0.5): 10.4 is in, 10.6 is out.
+        assert_eq!(ids(&nearest(&foes, 10.0, 9)), [1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn no_slots_or_no_reach_selects_nothing() {
+        let foes = [foe(1, 0.4, 1.0), foe(2, 0.6, 1.0)];
+        assert!(nearest(&foes, 10.0, 0).is_empty());
+        assert_eq!(
+            ids(&nearest(&foes, 0.0, 5)),
+            [1],
+            "a zero range still reaches a touching foe"
+        );
+        assert!(nearest(&[], 10.0, 3).is_empty());
+    }
+
+    #[test]
+    fn toughest_prefers_health_inside_reach() {
+        let foes = [
+            foe(1, 1.0, 100.0),
+            foe(2, 9.0, 900.0),
+            foe(3, 40.0, 9_000.0),
+        ];
+        assert_eq!(
+            ids(&toughest(&foes, 10.0, 1)),
+            [2],
+            "the 9000-health foe is out of reach"
+        );
+        assert_eq!(ids(&toughest(&foes, 10.0, 2)), [2, 1]);
+    }
+
+    #[test]
+    fn densest_finds_the_crowded_spot() {
+        let foes = [
+            foe(1, 0.0, 1.0),
+            foe(2, 1.0, 1.0),
+            foe(3, 2.0, 1.0),
+            foe(4, 8.0, 1.0),
+        ];
+        let spot = densest(&foes, 20.0, 3.0).expect("a spot");
+        assert!(spot.x <= 2.0, "chose the lone foe at {}", spot.x);
+    }
+
+    #[test]
+    fn densest_with_nothing_in_reach_is_none() {
+        assert_eq!(densest(&[], 10.0, 2.0), None);
+        assert_eq!(densest(&[foe(1, 50.0, 1.0)], 10.0, 2.0), None);
+    }
+
+    #[test]
+    fn area_reach_counts_half_the_target_radius() {
+        let foe = foe(1, 5.0, 1.0);
+        assert!(around(std::slice::from_ref(&foe), Vec3::ZERO, 4.4).is_empty());
+        assert_eq!(around(std::slice::from_ref(&foe), Vec3::ZERO, 4.8).len(), 1);
+    }
+
+    #[test]
+    fn execute_finishes_a_weakened_target_only_below_its_threshold() {
+        let ex = Effect::Execute(0.25);
+        assert_eq!(
+            execute_damage(10.0, ex, 20.0, 100.0, false),
+            20.0,
+            "20 % health"
+        );
+        assert_eq!(
+            execute_damage(10.0, ex, 50.0, 100.0, false),
+            10.0,
+            "50 % health"
+        );
+        assert_eq!(
+            execute_damage(10.0, ex, 20.0, 100.0, true),
+            10.0,
+            "a boss is immune"
+        );
+        assert_eq!(execute_damage(10.0, Effect::None, 20.0, 100.0, false), 10.0);
+        assert_eq!(
+            execute_damage(10.0, ex, 0.0, 0.0, false),
+            10.0,
+            "no health pool, no execute"
+        );
+    }
+
+    #[test]
+    fn a_crit_chance_of_one_always_doubles_and_zero_never_does() {
+        let mut rng = Rng::seeded(5);
+        for _ in 0..200 {
+            assert_eq!(roll(&mut rng, 1.0, 10.0), (20.0, true));
+            assert_eq!(roll(&mut rng, 0.0, 10.0), (10.0, false));
         }
     }
 }
