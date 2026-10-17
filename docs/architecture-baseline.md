@@ -151,10 +151,11 @@ Measured on Windows 11 x64 with MSVC 14.5x, Windows SDK 10.0.26100, and Rust 1.9
 - `cargo fmt --all -- --check`: **fails** on 13 pre-existing files outside survivors
   (`ui_chat/settings.rs`, `benilla-assets/src/lib.rs`, `benilla-protocol/*`, `benilla-world/*`,
   `benilla-ui/src/script/tick.rs`). Survivors files are clean.
-- `cargo clippy -D warnings`: **fails** on pre-existing code under the pinned clippy 1.98:
-  one `needless_borrow` in `benilla-world/src/rig_anim/compose.rs:198` (platform-dependent, so it
-  is not fixed here), plus seven lints in `benilla-app` (`hud.rs:1648`, `grade.rs:77`,
-  `webbridge/nearby.rs:7`, `webbridge/snapshot.rs:47,61,188`, `realmlist.rs:145`). Zero lints come
-  from Phase 1 code.
+- `cargo clippy --no-deps -p benilla-app -p warcraft-survivors -- -D warnings`: **passes**, after
+  seven pre-existing lints in `benilla-app` were fixed (type aliases, one orphaned doc comment, one
+  test module moved). Phase 1 code adds no lints.
+- `cargo clippy --workspace -- -D warnings`: **fails** on one `needless_borrow` in
+  `benilla-world/src/rig_anim/compose.rs:198`. The fix is platform-dependent, so it is left for a
+  separate decision.
 
 Details and decisions are in `docs/windows-development.md`.

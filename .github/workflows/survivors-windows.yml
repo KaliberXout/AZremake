@@ -41,3 +41,8 @@ jobs:
       - name: Survivors unit tests and the no-data launch check
         shell: pwsh
         run: ./scripts/windows/survivors.ps1 -Action Test
+      # Clippy only compiles: it reads no game data. --no-deps keeps the gate on the survivors
+      # crates; the pre-existing lints elsewhere are documented in docs/windows-development.md.
+      - name: Lint (rustfmt and clippy, survivors crates)
+        shell: pwsh
+        run: ./scripts/windows/survivors.ps1 -Action Lint

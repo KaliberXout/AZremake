@@ -13,8 +13,10 @@ machine. Anything not run is marked as such.
 - Launch with game data and the gameplay smoke test: **Blocked**. No WoW 1.12.1 client is on this
   machine, and the client is not downloaded automatically. See
   [survivors-smoke-test.md](survivors-smoke-test.md).
-- The repository-wide gates (`cargo fmt --all --check`, workspace clippy with `-D warnings`) **fail
-  on pre-existing code**. Section 6 lists the exact items.
+- The survivors-scope gates pass: `cargo test -p benilla-app --lib survivors`, and clippy with
+  `-D warnings` on the survivors crates (`--no-deps`). Repository-wide gates still fail on
+  pre-existing code: `cargo fmt --all --check` (13 files) and workspace clippy (one lint in
+  `benilla-world`). Section 6 lists the exact items.
 
 ## 2. Prerequisites (verified)
 
@@ -117,17 +119,19 @@ Each row is a command that was actually run in this Phase 1 session, with its re
 | 9 | Launch with `WOW_DATA=` (before the fix) | Observed | Opened a window titled "Warcraft Survivors", then stayed on `loading screen: waiting` with no error to the user. The log repeated `Asset Source 'AssetSourceId::Name(mpq)' does not exist`. |
 | 10 | Launch with `WOW_DATA=` (after the fix), via `-Action Test` | **Passed** | Exit code 1, message printed, no window |
 | 11 | `cargo test -p benilla-app --lib` (whole library) | **Failed**, 4 of 4287 | See below. None is caused by Phase 1. |
-| 12 | `cargo clippy --no-deps -p benilla-app -p warcraft-survivors --all-targets -- -D warnings` | **Failed** (pre-existing) | 7 lints in `benilla-app`, none in Phase 1 code (see below) |
-| 13 | Same clippy command with the three pre-existing lint names allowed, for verification only | **Passed** | Confirms Phase 1 code is lint-clean. Not part of any configuration. |
-| 14 | `cargo clippy --workspace --all-targets -- -D warnings` (what `ci.yml` runs) | **Not run to completion** | Fails first in `benilla-world` (section below), the same pre-existing lint |
-| 15 | `scripts\windows\survivors.ps1 -Action Test` (final) | **Passed** | 62 unit tests and the no-data launch check (exit 1 with the message) |
-| 16 | Patch diff: `lua-src` 550.0.0, `mlua-sys` 0.10.0, `kira` 0.12.4 against pristine crates.io copies | **Passed** | Differences match the `BENILLA.md` files. See [security-review.md](security-review.md) section 4. |
-| 17 | `bash -n scripts/fetch-data.sh` and `bash -n scripts/web-setup.sh` (Git Bash) | **Passed** | Syntax only. Not executed. |
-| 18 | `scripts\windows\survivors.ps1 -Action Build -Release` (second, from final code) | **Passed** | Cargo reports the release artifact fresh (0.46 s), so it was built from the final sources during the earlier release build. |
+| 12 | `cargo clippy --no-deps -p benilla-app -p warcraft-survivors --all-targets -- -D warnings` (no allow flags) | **Passed** | After the seven pre-existing lints were fixed (see item 12 below) |
+| 13 | Clippy with the same command and `-A` flags for the three lint names | Not needed | Superseded by row 12 |
+| 14 | `cargo clippy --workspace --all-targets -- -D warnings` (what `ci.yml` runs) | **Failed** (pre-existing) | One `needless_borrow` in `benilla-world/src/rig_anim/compose.rs:198`. Platform-dependent, not changed. |
+| 15 | `scripts\windows\survivors.ps1 -Action Lint` (WOW_DATA empty, no WoW folder in the repo) | **Passed** | rustfmt on survivors sources, then clippy `--no-deps` with `-D warnings`. Shows the Windows CI lint step needs no game data. |
+| 16 | `scripts\windows\survivors.ps1 -Action Test` (final) | **Passed** | 62 unit tests and the no-data launch check (exit 1 with the message) |
+| 17 | Patch diff: `lua-src` 550.0.0, `mlua-sys` 0.10.0, `kira` 0.12.4 against pristine crates.io copies | **Passed** | Differences match the `BENILLA.md` files. See [security-review.md](security-review.md) section 4. |
+| 18 | `bash -n scripts/fetch-data.sh` and `bash -n scripts/web-setup.sh` (Git Bash) | **Passed** | Syntax only. Not executed. |
+| 19 | `scripts\windows\survivors.ps1 -Action Build -Release` (second, from final code) | **Passed** | Cargo reports the release artifact fresh (0.46 s), so it was built from the final sources during the earlier release build. |
 
 ### Item 11: full library test run
 
-4,283 passed, 4 failed, 10 ignored.
+4,283 passed, 4 failed, 10 ignored. The same four fail before and after the lint commit. They are
+**left for later investigation** and are not part of Phase 1's lint work.
 
 | Test | Cause | In Phase 1 scope? |
 | --- | --- | --- |
@@ -138,17 +142,14 @@ Each row is a command that was actually run in this Phase 1 session, with its re
 
 ### Item 12: clippy under the pinned toolchain
 
-| Location | Lint | Owner |
-| --- | --- | --- |
-| `benilla-world/src/rig_anim/compose.rs:198` | `needless_borrow`. The fix differs by platform: on Windows `scratch.compose` returns a slice, and on macOS `rig_worlds` returns an owned value. A one-token change that is right on Windows would break macOS, which cannot be built here. Not changed. | upstream |
-| `benilla-app/src/survivors/hud.rs:1648` | `empty_line_after_doc_comments` | pre-existing survivors code |
-| `benilla-app/src/survivors/grade.rs:77` | `type_complexity` | pre-existing survivors code |
-| `benilla-app/src/webbridge/nearby.rs:7` | `type_complexity` | webbridge |
-| `benilla-app/src/webbridge/snapshot.rs:47, 61, 188` | `type_complexity` | webbridge |
-| `benilla-app/src/realmlist.rs:145` | `items_after_test_module` | upstream |
+Seven pre-existing lints in `benilla-app` were fixed in a separate commit, with no behaviour
+change: a type alias for each of the five `type_complexity` sites, an orphaned doc comment removed
+(`hud.rs`), and a test module moved above a helper it preceded (`realmlist.rs`). The survivors
+clippy gate now passes with no allow attributes.
 
-These are left in place. Fixing them would refactor unrelated code, which the phase brief rules
-out. The decision on whether to fix them is listed in section 8.
+| Location | Lint | Status |
+| --- | --- | --- |
+| `benilla-world/src/rig_anim/compose.rs:198` | `needless_borrow` | **Open.** The fix is platform-dependent: on Windows `scratch.compose` returns a slice, and on macOS `rig_worlds` returns an owned value. A one-token change that is right on Windows would break macOS, which cannot be built here. Not changed. Only the workspace-wide clippy run reaches it. |
 
 ## 7. The browser build on Windows (secondary)
 
@@ -163,11 +164,10 @@ so `web/tests` was not run either. The `wasm32` `cargo check` from `check.yml` w
    smoke test. Provide a `Data` folder and the sequence in
    [survivors-smoke-test.md](survivors-smoke-test.md) can run.
 2. **`SweepUiMaterial` has no warm-up contributor** (a failing engine test and a first-sight
-   stall risk). Recommended Phase 2 work.
-3. **Clippy under the pinned toolchain** fails on 7 lints in `benilla-app` and 1 in `benilla-world`.
-   Options: fix them (small, surgical edits across webbridge, realmlist, grade and hud), or keep
-   them and let the Windows gate run clippy with `--no-deps` on the survivors-only items later.
-4. **`cargo fmt --all --check`** fails on 13 files outside survivors.
+   stall risk). Investigate after the native gameplay smoke test launches. Not part of this change.
+3. **Clippy in workspace mode** still fails on one `benilla-world` lint (section 6, item 12). The
+   survivors crates are gated by `survivors-windows.yml` with `--no-deps`, which needs no game data.
+4. **`cargo fmt --all --check`** fails on 13 files outside survivors. Not changed.
 5. **Browser build** was not verified on Windows.
 
 ## 9. Troubleshooting
