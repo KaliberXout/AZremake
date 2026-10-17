@@ -366,6 +366,26 @@ fn invalid_clock_values_schedule_nothing() {
 }
 
 #[test]
+fn a_battleground_with_no_bosses_schedules_none() {
+    assert_eq!(data::bosses_due(10_000.0, 0), 0, "capped by an empty roster");
+}
+
+#[test]
+fn non_finite_experience_is_left_alone() {
+    // NaN compares false, so the curve stops at once and the level does not move.
+    let (mut xp, mut level) = (f32::NAN, 3);
+    assert_eq!(data::spend_xp(&mut xp, &mut level), 0);
+    assert_eq!(level, 3);
+    assert!(xp.is_nan());
+}
+
+#[test]
+fn a_degenerate_range_returns_its_bound() {
+    let mut rng = Rng::seeded(4);
+    assert_eq!(rng.range(2.5, 2.5), 2.5);
+}
+
+#[test]
 fn closing_rings_fall_halfway_between_bosses() {
     let half = data::BOSS_EVERY_SECS / 2.0;
     assert_eq!(data::rings_due(0.0), 0);
