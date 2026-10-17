@@ -207,3 +207,19 @@ Full layers, commands and acceptance criteria are in `docs/testing.md`. The rule
 | the world freezes ~200 ms at zone lines | the soundscape carry (`sound/zone.rs`, `sound/web_load.rs`), wasm-only |
 | short stalls in the browser on the first play of a sound (combat, a new creature, footsteps on new ground) | the SFX carry (`sound/kit/deferred.rs`, the glue and cinematic arms of `sound/glue.rs`/`sound/cinematic.rs`), wasm-only |
 | the prod image is not what `main` says | wenilla-realm/docs/RELEASE.md, "When it breaks" |
+
+## Project context
+
+Before beginning implementation, read:
+
+- `docs/PROJECT_STATUS.md`
+- `docs/tasks/next.md`
+
+Read other documentation only when relevant to the assigned task.
+
+Work only on the explicitly requested task. Avoid unrelated
+refactoring, broad repository scans, and long-running test suites
+unless necessary.
+
+After verified implementation changes, update project status
+and the task backlog when applicable.
