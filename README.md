@@ -64,7 +64,9 @@ make start     # → open http://127.0.0.1:8090/
 | `scripts/web-setup.sh` | installs the wasm toolchain (wasi-sdk, wasm-bindgen, binaryen) |
 | `scripts/web-build.sh` | builds the client into `web/dist/` |
 
-**Prerequisites:** [Rust](https://rustup.rs/), `make`, `curl`, `unzip`, and a bash shell. On Windows, run everything from Git Bash; PowerShell and cmd can't run the scripts.
+**Prerequisites:** [Rust](https://rustup.rs/), `make`, `curl`, `unzip`, and a bash shell. On Windows,
+the `make` path needs Git Bash. The native Windows game uses PowerShell instead (below). Run
+`make` (or `make help`) to list every target.
 
 ### Windows 11 (native, no bash)
 
@@ -80,8 +82,6 @@ winget install --id Rustlang.Rustup -e
 
 The full steps, the data-folder layout and the status of each check are in
 [docs/windows-development.md](docs/windows-development.md).
-
-Run `make` (or `make help`) to list every target.
 
 ## Controls
 
