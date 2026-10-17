@@ -171,7 +171,7 @@ pub(super) fn spawn_enemies(
     let roster = data::roster(selection.map);
     let pool = data::wave_pool(elapsed, roster.enemies.len());
 
-    let due_bosses = ((elapsed / data::BOSS_EVERY_SECS) as u32).min(roster.bosses.len() as u32);
+    let due_bosses = data::bosses_due(elapsed, roster.bosses.len());
     while run.bosses < due_bosses {
         let def = &roster.bosses[run.bosses as usize];
         let a = rng.range(0.0, std::f32::consts::TAU);
@@ -183,10 +183,14 @@ pub(super) fn spawn_enemies(
         spawn_enemy(&mut commands, &mut run, def, pos, hpos, true);
         run.bosses += 1;
         run.banner = Some((format!("{} approaches!", def.name), 4.0));
+        info!(
+            "survivors: boss {} spawned at t={:.0}s",
+            def.name, run.elapsed
+        );
     }
 
     // Half way between bosses, a closing ring of the moment's weakest.
-    let due_rings = ((elapsed + data::BOSS_EVERY_SECS / 2.0) / data::BOSS_EVERY_SECS) as u32;
+    let due_rings = data::rings_due(elapsed);
     if run.rings < due_rings {
         run.rings = due_rings;
         let def = &roster.enemies[pool[0]];
@@ -484,14 +488,12 @@ pub(super) fn collect_gems(
         g.speed += 30.0 * dt;
         tf.translation += d / dist * (g.speed * dt).min(dist);
     }
-    while run.xp >= data::xp_to_next(run.level) {
-        run.xp -= data::xp_to_next(run.level);
-        run.level += 1;
-        run.pending_levels += 1;
-        if run.level == super::mobility::LEARN_LEVEL {
-            if let Some(m) = super::mobility::for_class(run.class.id) {
-                run.banner = Some((format!("You have learned {}! Press F.", m.name), 4.0));
-            }
+    let r = &mut *run;
+    let before = r.level;
+    r.pending_levels += data::spend_xp(&mut r.xp, &mut r.level);
+    if before < super::mobility::LEARN_LEVEL && r.level >= super::mobility::LEARN_LEVEL {
+        if let Some(m) = super::mobility::for_class(r.class.id) {
+            r.banner = Some((format!("You have learned {}! Press F.", m.name), 4.0));
         }
     }
     if run.pending_levels > 0 {

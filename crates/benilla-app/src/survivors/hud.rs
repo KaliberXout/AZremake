@@ -182,7 +182,7 @@ pub(super) enum Choice {
 /// The level-up cards on offer.
 #[derive(Resource, Default)]
 pub(super) struct Offer {
-    choices: Vec<Choice>,
+    pub(super) choices: Vec<Choice>,
 }
 
 impl Offer {
@@ -926,7 +926,7 @@ pub(super) fn start_run(run: &mut Run, selection: &mut Selection) -> bool {
     true
 }
 
-fn choices_for(run: &Run, rng: &mut Rng) -> Vec<Choice> {
+pub(super) fn choices_for(run: &Run, rng: &mut Rng) -> Vec<Choice> {
     let mut pool: Vec<(Choice, f32)> = Vec::new();
     for (i, o) in run.abilities.iter().enumerate() {
         if o.level < data::MAX_ABILITY_LEVEL {

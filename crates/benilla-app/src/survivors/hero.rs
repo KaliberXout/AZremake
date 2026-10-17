@@ -455,17 +455,46 @@ pub(super) fn hero_vitals(
     marks.set(&shown);
     marks.flush(entity, guid.0, &mut store, &mut fields);
 
-    if run.hp <= 0.0 {
-        run.hp = 0.0;
-        run.dead_t = Some(0.0);
-        units::kill_unit(&mut store);
-        marks.clear();
-        marks.flush(entity, guid.0, &mut store, &mut fields);
-    } else if run.elapsed >= data::VICTORY_SECS {
-        run.won = true;
-        // A last flourish before the results.
-        fx.cast(entity, 642, &[entity], None);
-        next.set(Phase::GameOver);
+    match outcome(run.hp, run.elapsed) {
+        Some(Outcome::Died) => {
+            info!(
+                "survivors: run over: died at t={:.0}s, level {}, kills {}",
+                run.elapsed, run.level, run.kills
+            );
+            run.hp = 0.0;
+            run.dead_t = Some(0.0);
+            units::kill_unit(&mut store);
+            marks.clear();
+            marks.flush(entity, guid.0, &mut store, &mut fields);
+        }
+        Some(Outcome::Won) => {
+            info!(
+                "survivors: run over: won at t={:.0}s, level {}, kills {}",
+                run.elapsed, run.level, run.kills
+            );
+            run.won = true;
+            // A last flourish before the results.
+            fx.cast(entity, 642, &[entity], None);
+            next.set(Phase::GameOver);
+        }
+        None => {}
+    }
+}
+
+/// How a run ends, when it does. Health reaching zero beats the clock.
+#[derive(Debug, PartialEq)]
+pub(super) enum Outcome {
+    Died,
+    Won,
+}
+
+pub(super) fn outcome(hp: f32, elapsed: f32) -> Option<Outcome> {
+    if hp <= 0.0 {
+        Some(Outcome::Died)
+    } else if elapsed >= data::VICTORY_SECS {
+        Some(Outcome::Won)
+    } else {
+        None
     }
 }
 

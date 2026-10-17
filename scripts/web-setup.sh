@@ -38,7 +38,7 @@ else
   url="https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION}/wasi-sdk-${WASI_SDK_VERSION}.0-${plat}.tar.gz"
   mkdir -p "${WASI_DIR}"
   echo "downloading ${url}"
-  curl -sL "${url}" | tar xz --strip-components=1 -C "${WASI_DIR}"
+  curl -fsSL --proto '=https' --proto-redir '=https' "${url}" | tar xz --strip-components=1 -C "${WASI_DIR}"
 fi
 
 echo "== binaryen (wasm-opt -O3: the client is CPU-bound on its one wasm thread; +6 % measured)"
@@ -55,7 +55,7 @@ else
   esac
   if [ -n "${bplat}" ]; then
     mkdir -p tools/binaryen
-    curl -sL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-${bplat}.tar.gz" | tar xz --strip-components=1 -C tools/binaryen
+    curl -fsSL --proto '=https' --proto-redir '=https' "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-${bplat}.tar.gz" | tar xz --strip-components=1 -C tools/binaryen
   else
     echo "  no binaryen release for this host — web-build.sh will skip wasm-opt"
   fi

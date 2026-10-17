@@ -1312,6 +1312,16 @@ pub(crate) const BOSS_EVERY_SECS: f32 = 135.0;
 /// Experience per gem: every level of the curve comes at the run's pace.
 pub(crate) const XP_RATE: f32 = 2.0;
 
+/// How many of a battleground's `total` bosses are due by `elapsed`, one every [`BOSS_EVERY_SECS`].
+pub(crate) fn bosses_due(elapsed: f32, total: usize) -> u32 {
+    ((elapsed / BOSS_EVERY_SECS) as u32).min(total as u32)
+}
+
+/// How many closing rings are due by `elapsed`: one half way between each pair of bosses.
+pub(crate) fn rings_due(elapsed: f32) -> u32 {
+    ((elapsed + BOSS_EVERY_SECS / 2.0) / BOSS_EVERY_SECS) as u32
+}
+
 /// How far through the run, 0 at the start and 1 at [`VICTORY_SECS`].
 pub(crate) fn progress(elapsed: f32) -> f32 {
     (elapsed / VICTORY_SECS).max(0.0)
@@ -1352,6 +1362,18 @@ pub(crate) fn xp_to_next(level: u32) -> f32 {
     } else {
         455.0 + (l - 40.0) * 16.0
     }
+}
+
+/// Spends the experience that reaches the next level, one level at a time, and returns how many
+/// levels it gained.
+pub(crate) fn spend_xp(xp: &mut f32, level: &mut u32) -> u32 {
+    let mut gained = 0;
+    while *xp >= xp_to_next(*level) {
+        *xp -= xp_to_next(*level);
+        *level += 1;
+        gained += 1;
+    }
+    gained
 }
 
 /// A creature on a battleground's roster: who it is, its pace and its size. Its health, damage
@@ -1399,7 +1421,7 @@ pub(crate) struct MapDef {
     /// The results screen's line on a win.
     pub victory: &'static str,
     /// Weakest first; empty for The Barrens, which keeps its hand-tuned [`ENEMIES`].
-    foes: &'static [Foe],
+    pub(crate) foes: &'static [Foe],
     /// One every [`BOSS_EVERY_SECS`], in order; empty for The Barrens' [`BOSSES`].
     bosses: &'static [Foe],
 }

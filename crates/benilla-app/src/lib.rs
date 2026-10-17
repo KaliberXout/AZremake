@@ -228,6 +228,13 @@ pub fn run_with(build: BuildId, extend: impl FnOnce(&mut App)) -> AppExit {
 /// Warcraft Survivors: the client booted server-less into a top-down survival mode on a picked
 /// battleground ([`survivors`]), called by the `warcraft-survivors` launcher.
 pub fn run_survivors(build: BuildId) -> AppExit {
+    // The install resolves from the launcher's folder in a dev build, so record it before the check.
+    benilla_formats::set_project_folder(build.project_dir);
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(report) = survivors::install::check_wow_data() {
+        eprintln!("{report}");
+        return AppExit::error();
+    }
     survivors::ACTIVE.store(true, std::sync::atomic::Ordering::Relaxed);
     launch(build, None)
 }

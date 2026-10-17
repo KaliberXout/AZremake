@@ -12,10 +12,15 @@ mod enemies;
 mod grade;
 mod hero;
 mod hud;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod install;
 mod menu;
 mod minimap;
 mod mobility;
 mod units;
+
+#[cfg(test)]
+mod tests;
 
 use benilla_world::schedule::WorldStage;
 use bevy::prelude::*;
@@ -365,6 +370,17 @@ impl Default for Rng {
 }
 
 impl Rng {
+    /// A fixed stream, so a test's dice come out the same every run. Only zero is remapped, since
+    /// the xorshift state must not be zero; `seed | 1` would make seeds 2k and 2k+1 identical.
+    #[cfg(test)]
+    pub(super) fn seeded(seed: u64) -> Self {
+        Self(if seed == 0 {
+            0x9E37_79B9_7F4A_7C15
+        } else {
+            seed
+        })
+    }
+
     pub fn next_u64(&mut self) -> u64 {
         let mut x = self.0;
         x ^= x >> 12;

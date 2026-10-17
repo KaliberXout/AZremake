@@ -31,7 +31,7 @@ mkdir -p "$DATA_DIR"
 if [ ! -f "$ZIP" ]; then
     echo "downloading the game data (a WoW 1.12.1 client, ~5.5 GB)…"
     echo "  $URL"
-    curl -L -C - -o "$ZIP" "$URL"
+    curl -L --proto '=https' --proto-redir '=https' -C - -o "$ZIP" "$URL"
 else
     echo "resuming/using $ZIP"
 fi

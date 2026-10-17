@@ -1,0 +1,43 @@
+# Warcraft Survivors on native Windows: the survivors unit tests, and the check that the game refuses
+# to start without a WoW 1.12.1 Data folder. Neither needs the client, so no proprietary asset is
+# fetched or committed. The same steps run locally through scripts/windows/survivors.ps1.
+name: survivors-windows
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: survivors-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: 0
+      # No debuginfo: it is most of target/, and a runner's disk is small.
+      CARGO_PROFILE_DEV_DEBUG: 0
+      # Set and empty: no install. The launch check relies on it and the tests never read data.
+      WOW_DATA: ""
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # rust-toolchain.toml pins the toolchain, clippy and rustfmt; `rustup show` installs them.
+      - name: Toolchain
+        shell: pwsh
+        run: rustup show
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: survivors-windows
+      - name: Survivors unit tests and the no-data launch check
+        shell: pwsh
+        run: ./scripts/windows/survivors.ps1 -Action Test

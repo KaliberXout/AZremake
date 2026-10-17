@@ -66,6 +66,21 @@ make start     # → open http://127.0.0.1:8090/
 
 **Prerequisites:** [Rust](https://rustup.rs/), `make`, `curl`, `unzip`, and a bash shell. On Windows, run everything from Git Bash; PowerShell and cmd can't run the scripts.
 
+### Windows 11 (native, no bash)
+
+The survivors game runs natively. You need Rust (the pinned toolchain installs itself from
+`rust-toolchain.toml`), Visual Studio with the C++ build tools, and a WoW 1.12.1 `Data` folder you
+already own. Nothing downloads the client.
+
+```powershell
+winget install --id Rustlang.Rustup -e
+.\scripts\windows\survivors.ps1 -Action Test                  # unit tests + launch check
+.\scripts\windows\survivors.ps1 -Action Run -DataDir "<path to your WoW 1.12.1 Data folder>"
+```
+
+The full steps, the data-folder layout and the status of each check are in
+[docs/windows-development.md](docs/windows-development.md).
+
 Run `make` (or `make help`) to list every target.
 
 ## Controls
