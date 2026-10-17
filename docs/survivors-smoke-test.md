@@ -3,9 +3,11 @@
 This checklist covers the native Windows build (`warcraft-survivors.exe`). It separates checks the
 automated autopilot can make from checks that need a person looking at the screen.
 
-**Current status (end of Phase 1): Blocked.** Every step below needs a complete WoW 1.12.1
-`Data` folder, which is not on this machine. The launch check that does not need data has run and
-passed. See the status column and section 4.
+**Current status (end of testing finalisation): run and passed, with data.** The launch with the
+user's WoW 1.12.1 Data folder ran the autopilot legs and passed 17 of 17 automated checks
+(run `20261017-165007`, release build). Steps 1 to 12 are covered below. Visual checks that a
+person must confirm are listed in section 4. The results and performance figures are in
+[testing.md](testing.md).
 
 ## 1. Prerequisites
 
@@ -75,22 +77,34 @@ Stop-Process -Id $p.Id
 | 11 | Victory and defeat | **Automated:** `run over: won` in `:late` mode after about 5 minutes; `run over: died` in `:idle` mode. | **Blocked** |
 | 12 | Returning to the menu | **Automated:** after a game over, the next `run begins` line appears about six seconds later, which means the menu ran and a new run started. | **Blocked** |
 
-## 4. Results (Phase 1)
+## 4. Results
+
+Run `20261017-165007` (release build, commit `1f1cbbb`, `scripts/windows/smoke-survivors.ps1`):
 
 | Check | Result | Evidence |
 | --- | --- | --- |
-| Launch refuses without data (step 1, no-data half) | **Passed** | `survivors.ps1 -Action Test` ran the dev `warcraft-survivors.exe` with `WOW_DATA` empty. It exited with code 1 and printed `Warcraft Survivors needs a WoW 1.12.1 Data folder`. The output is in that run's console (Phase 1 session), and the script fails if the exit code is 0 or the message is missing. |
-| Launch with data (step 1) | **Blocked** | No WoW 1.12.1 data is installed on this machine. Search of `C:\Azeroth`, `C:\Games`, `C:\Program Files`, `C:\Program Files (x86)`, `D:\`, `E:\`, `Downloads` and `Desktop` found only Battle.net's own MPQ. The client is not downloaded automatically. |
-| Steps 2 to 12 | **Blocked** | Same cause. The autopilot needs the same data. |
-| Before the Phase 1 fix (for the record) | Observed | Without data the old binary opened a window and logged `Asset Source 'AssetSourceId::Name(mpq)' does not exist` repeatedly, then stayed on `loading screen: waiting` with no user-facing error. |
+| Launch refuses without data (step 1, no-data half) | **Passed** | `survivors.ps1 -Action Test`: exit code 1 with `Warcraft Survivors needs a WoW 1.12.1 Data folder`, from the dev binary with `WOW_DATA` empty. |
+| Launch with data, window opens, stays responsive (step 1) | **Passed** | Window `Warcraft Survivors` created; 0 unresponsive samples. |
+| Menu renders (step 2) | **Passed, screenshot saved**; art not yet viewed by the author | `menu\menu.png`. Visual check open. |
+| Character and zone selection (step 3) | **Passed** | `run begins as Mage at The Barrens`. The pick is made by the autopilot, not by a click. |
+| Run starts (step 4) | **Passed** | Status lines with `Playing` and `t` advancing. |
+| Enemies spawn and move (step 5) | **Passed** for spawning (`alive` up to 253); movement visible in screenshots only | Status lines; `menu\shot-002.png`. |
+| Automatic casting (step 6) | **Passed** | `damage` rises every status line; `build=` lists the owned spells. |
+| Damage, health and death (step 7) | **Passed** | `run over: died at t=78s, level 7, kills 192`; hp reaches 0. The author did not see this run; the user reports a manual death in the same build. |
+| XP and level-ups (step 8) | **Passed** | Level-up reached; `levelup-2.png` saved. |
+| Card selection (step 9) | **Passed** for the pick path; card art needs a visual check | Autopilot picks at each `LevelUp`. |
+| Boss spawns (step 10) | **Passed** | `survivors: boss ... spawned` lines in the victory leg (4 lines). |
+| Victory (step 11) | **Passed** | `run over: won at t=900s, level 177, kills 5881`. The results screen was viewed: "Victory! The Barrens are yours.", 15:00 survived, 6 bosses. |
+| Return to menu (step 12) | **Passed** | Second `run begins` line after the death. |
+| Stability | **Passed** | 0 `ERROR` lines in all legs. |
 
-To unblock: supply a `Data` folder with `-DataDir` and run the sequence in section 2. Record the
-log lines and screenshots, and update the table above.
+Manual checks still open, for a person: menu art and pick screen, card art and rarity colours,
+spell visuals and enemy movement, and the death results screen.
 
 ## 5. Automated tests versus manual checks
 
 | Kind | What it covers | Where it runs |
 | --- | --- | --- |
-| Automated, no data | 62 unit tests for rules (damage, cooldowns, XP, rarity, offers, slots, spawn schedule, scaling, victory and death, targeting, seeded dice); the no-data launch refusal | `scripts/windows/survivors.ps1 -Action Test`, `.github/workflows/survivors-windows.yml` |
-| Automated, data needed | Autopilot run: steps 3 to 8, 10 to 12 through the log | Local, with `-DataDir` |
+| Automated, no data | 69 survivors tests for rules, schedules, offers and the launch check, plus the four headless whole-run scenarios; the no-data launch refusal | `scripts/windows/survivors.ps1 -Action Test`, `.github/workflows/survivors-windows.yml` |
+| Automated, data needed | Autopilot legs: steps 1 to 12 through the log, screenshots, and the perf journal | Local, `scripts/windows/smoke-survivors.ps1 -DataDir <Data>` |
 | Manual | Visual checks: menu art, card visuals, spell effects, camera feel, audio | Local, with a screen |

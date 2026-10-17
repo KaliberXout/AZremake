@@ -45,6 +45,7 @@ Phase planning and the current baseline are in `docs/architecture-baseline.md`,
 | `crates/wenilla-host` | local dev server: static files, `/data/*`, `/ws/*` relay. Loopback only. | ours |
 | `web/` | the page side: `index.html` (dev page), `boot.js`, `platform.js`, `bridge.js`, `examples/`, `wasi_stubs.js` | ours |
 | `scripts/windows/survivors.ps1` | native Windows: check, test, lint, build, run the survivors game | ours |
+| `scripts/windows/smoke-survivors.ps1` | native smoke test and performance baseline, against a Data folder you supply | ours |
 | `scripts/web-setup.sh`, `scripts/web-build.sh` | toolchain and build for the wasm | ours |
 | `third_party/lua-src`, `third_party/mlua-sys`, `third_party/kira` | vendored and patched; each has a `BENILLA.md` | ours (vendored) |
 | `.github/workflows/survivors-windows.yml` | the Windows survivors gate (tests, no-data launch check) | ours |
@@ -71,21 +72,22 @@ Native Windows (PowerShell 5.1 or 7; no Git Bash, no `make`):
 .\scripts\windows\survivors.ps1 -Action Lint                  # rustfmt + clippy for the survivors crates
 .\scripts\windows\survivors.ps1 -Action Build -Release        # warcraft-survivors.exe (release)
 .\scripts\windows\survivors.ps1 -Action Run -DataDir <Data>   # play; <Data> is a WoW 1.12.1 Data folder you own
+.\scripts\windows\smoke-survivors.ps1 -DataDir <Data> -Release # native smoke test + perf baseline; writes target\smoke\<stamp>\report.md
 ```
 
 Cargo directly, from the repository root:
 
 ```bash
 cargo check -p warcraft-survivors                 # the native survivors binary
-cargo test -p benilla-app --lib survivors         # survivors unit tests (no game data needed)
+cargo test -p benilla-app --lib survivors         # survivors unit tests and headless simulation (no game data needed)
 cargo fmt --all -- --check                        # fails on pre-existing drift in 13 files; see docs/windows-development.md
-cargo clippy --no-deps -p benilla-app -p warcraft-survivors --all-targets -- -D warnings
+cargo clippy --workspace --all-targets -- -D warnings   # the Windows clippy gate; passes, see docs/testing.md
 cargo run --release -p warcraft-survivors         # needs WOW_DATA or a WoW/Data folder in the repo
 cargo survivors                                   # alias for the dev-profile run (.cargo/config.toml)
 ```
 
-`cargo clippy` without `--no-deps` also lints `benilla-world`, which has one pre-existing
-platform-dependent lint. Do not fix it on Windows alone; see the same document.
+The workspace clippy gate passes on Windows and needs no game data. Do not add a platform split
+to pass a lint: a platform-dependent fix must be checked on macOS and wasm too (see Invariants).
 
 Browser build (bash: Linux, macOS, or Git Bash on Windows; this path is secondary):
 
@@ -155,15 +157,27 @@ google-chrome --user-data-dir=/tmp/wenilla-chrome --enable-unsafe-webgpu --remot
 
 ## Testing
 
+Full layers, commands and acceptance criteria are in `docs/testing.md`. The rules for a change:
+
 - A change to survivors rules adds a test. Pure rules (damage, cooldowns, XP, rarity, offers,
   slots, schedules, scaling, targeting) live in `crates/benilla-app/src/survivors/tests.rs` or in
   an in-file `#[cfg(test)] mod tests` next to private helpers.
+- A change to the run loop, the clock, the boss schedule, or the victory and death paths also keeps
+  the headless simulation passing (`survivors/sim.rs`, the `scenarios` module). The simulation runs the
+  production schedule (`add_run_loop`) on a manual clock, so a whole 900-second run takes about 2
+  seconds and needs no assets. Do not write a second model of the game engine to test it.
 - Tests use `Rng::seeded` and fixed values. They must not need WoW data, a window, or the clock.
 - Prefer extracting a pure function from a Bevy system over testing through the ECS. Keep the
   extraction behaviour-preserving, and keep the call site as the only change in the system.
 - Run `.\scripts\windows\survivors.ps1 -Action Test` before a survivors change is pushed.
 - Data-gated tests use `wow_data_or_skip!` and skip without data. `BENILLA_REQUIRE_DATA=1` turns a
   skip into a failure on a machine that has the data.
+- The native smoke test (`scripts/windows/smoke-survivors.ps1`) needs a Data folder you own. It is
+  not part of CI. Run it on a Windows machine before changing combat, levelling, bosses or the
+  results screens, and read its `report.md` for the manual checks it lists.
+- Performance runs must not set a `WOW_FPS_*` variable without `WOW_BG=0`. Any `WOW_FPS_*` variable
+  marks the run as a background run, which forces a 640x360 unfocused window and measures the wrong
+  thing. `smoke-survivors.ps1` sets both.
 
 ## How a change ships
 

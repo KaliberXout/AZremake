@@ -7,16 +7,15 @@ machine. Anything not run is marked as such.
 ## 1. Summary
 
 - Build: **passes** (dev and release, Rust 1.98.1, MSVC, Windows 11 SDK).
-- Unit tests for the survivors rules: **pass** (62 tests, no game data needed).
+- Survivors unit, install and headless simulation tests: **pass** (69 tests, no game data needed).
 - Launch without game data: **refuses to start**, exits non-zero, and names the folders it
   searched. Before Phase 1 it opened a window and hung on a loading screen.
-- Launch with game data and the gameplay smoke test: **Blocked**. No WoW 1.12.1 client is on this
-  machine, and the client is not downloaded automatically. See
-  [survivors-smoke-test.md](survivors-smoke-test.md).
-- The survivors-scope gates pass: `cargo test -p benilla-app --lib survivors`, and clippy with
-  `-D warnings` on the survivors crates (`--no-deps`). Repository-wide gates still fail on
-  pre-existing code: `cargo fmt --all --check` (13 files) and workspace clippy (one lint in
-  `benilla-world`). Section 6 lists the exact items.
+- Launch with the user's WoW 1.12.1 data and the native smoke test: **passed**, 17 of 17 automated
+  checks (run `20261017-165007`). See [survivors-smoke-test.md](survivors-smoke-test.md) and
+  [testing.md](testing.md).
+- Clippy with `-D warnings` on the whole workspace: **passes** (`cargo clippy --workspace
+  --all-targets`). `cargo fmt --all --check` still fails on 13 files outside survivors, which is
+  not changed. Full library tests: 4,293 pass and 1 fails (the `SweepUiMaterial` warm-up test).
 
 ## 2. Prerequisites (verified)
 
@@ -149,7 +148,7 @@ clippy gate now passes with no allow attributes.
 
 | Location | Lint | Status |
 | --- | --- | --- |
-| `benilla-world/src/rig_anim/compose.rs:198` | `needless_borrow` | **Open.** The fix is platform-dependent: on Windows `scratch.compose` returns a slice, and on macOS `rig_worlds` returns an owned value. A one-token change that is right on Windows would break macOS, which cannot be built here. Not changed. Only the workspace-wide clippy run reaches it. |
+| `benilla-world/src/rig_anim/compose.rs:198` | `needless_borrow` | **Fixed** in `08c035ae`: `write_rig_worlds` takes `AsRef<[GlobalTransform]>`, so the Windows slice and the macOS `Vec` both fit with no auto-deref. Checked on Windows (clippy) and wasm (`cargo check`); macOS could not be built on this host, and the call shapes were probed. |
 
 ## 7. The browser build on Windows (secondary)
 
@@ -160,13 +159,12 @@ so `web/tests` was not run either. The `wasm32` `cargo check` from `check.yml` w
 
 ## 8. Blockers and decisions
 
-1. **No WoW 1.12.1 data on this machine.** This blocks steps 1 (with data) and 2 to 12 of the
-   smoke test. Provide a `Data` folder and the sequence in
-   [survivors-smoke-test.md](survivors-smoke-test.md) can run.
-2. **`SweepUiMaterial` has no warm-up contributor** (a failing engine test and a first-sight
-   stall risk). Investigate after the native gameplay smoke test launches. Not part of this change.
-3. **Clippy in workspace mode** still fails on one `benilla-world` lint (section 6, item 12). The
-   survivors crates are gated by `survivors-windows.yml` with `--no-deps`, which needs no game data.
+1. **No WoW 1.12.1 data blocker is resolved.** The user's Data folder ran the native smoke test
+   (run `20261017-165007`, 17 of 17 automated checks). See [testing.md](testing.md).
+2. **`SweepUiMaterial` has no warm-up contributor** (one failing engine test). Follow-up task; see
+   testing.md section 6.
+3. **Clippy in workspace mode** passes. The survivors crates are also gated by
+   `survivors-windows.yml` with `--no-deps`, which needs no game data.
 4. **`cargo fmt --all --check`** fails on 13 files outside survivors. Not changed.
 5. **Browser build** was not verified on Windows.
 
