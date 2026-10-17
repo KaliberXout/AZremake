@@ -367,7 +367,11 @@ fn invalid_clock_values_schedule_nothing() {
 
 #[test]
 fn a_battleground_with_no_bosses_schedules_none() {
-    assert_eq!(data::bosses_due(10_000.0, 0), 0, "capped by an empty roster");
+    assert_eq!(
+        data::bosses_due(10_000.0, 0),
+        0,
+        "capped by an empty roster"
+    );
 }
 
 #[test]
