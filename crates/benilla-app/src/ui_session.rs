@@ -383,7 +383,7 @@ mod tests {
         ];
 
         // The chain's own source says what is wired.
-        let this_file = include_str!("ui_session.rs");
+        let this_file = include_str!("ui_session.rs").replace("\r\n", "\n");
         let chain = this_file
             .split_once("pub(crate) fn feed_interact_npc")
             .expect("feed_interact_npc")

@@ -171,6 +171,19 @@ const GAP: &[(&str, &str, &str)] = &[
          coded options are greyed and unselectable (`reference_ui`'s UNPRODUCED row), and \
          vmangos's `gossip_menu_option` carries zero coded rows, so no NPC on this server reaches it",
     ),
+    (
+        "AddSkillUp",
+        "SKILL_LINES_CHANGED",
+        "a 1.12 skill-point purchase: its button shows only while a skill-point wire exists, which \
+         no 1.12 server sends, so the verb is unreachable and `reference_ui`'s UNPRODUCED row keeps \
+         it unbuilt; nothing here moves a skill for it to announce",
+    ),
+    (
+        "RemoveSkillUp",
+        "SKILL_LINES_CHANGED",
+        "the same unreachable skill-point block as AddSkillUp (its LeftArrow button shows only with \
+         a skill-point wire, which no 1.12 server sends); `reference_ui`'s UNPRODUCED row keeps it unbuilt",
+    ),
 ];
 
 fn table() -> Vec<Pair> {
@@ -238,9 +251,9 @@ fn quoted(text: &str, name: &str) -> bool {
 }
 
 fn short(p: &std::path::Path) -> String {
-    let s = p.to_string_lossy();
+    let s = p.to_string_lossy().replace('\\', "/");
     s.split_once("/crates/")
-        .map_or(s.to_string(), |(_, t)| t.to_string())
+        .map_or(s.clone(), |(_, t)| t.to_string())
 }
 
 /// The files that register `verb`, and whether any of them fires `event`.
@@ -324,7 +337,7 @@ fn the_declared_rows_are_still_true() {
         }
         let named: Vec<&(PathBuf, String)> = src
             .iter()
-            .filter(|(p, _)| p.to_string_lossy().ends_with(file))
+            .filter(|(p, _)| p.to_string_lossy().replace('\\', "/").ends_with(file))
             .collect();
         if named.is_empty() {
             wrong.push(format!(
