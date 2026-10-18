@@ -1,8 +1,8 @@
 # Azeroth Survivors — Content System Architecture
 
 **Status:** Proposed architecture — Phase 2  
-**Last updated:** 2026-10-17  
-**Implementation state:** Existing gameplay works; proposed changes are not yet implemented.
+**Last updated:** 2026-10-18
+**Implementation state:** P2-001 (explicit ability targeting) is implemented and committed (`0ad5a48`). The broader architecture described here remains proposed; registration, validation, and external content storage have not been established by that milestone.
 
 ## 1. Purpose
 
@@ -107,13 +107,13 @@ Survivors-specific code is primarily located under:
 
 Known relevant modules:
 
-| Module | Known responsibility |
-|---|---|
-| `abilities.rs` | Ability definitions, casting, targeting, and effect execution |
-| `data.rs` | Gameplay data and supporting definitions |
-| `hero.rs` | Hero-related behaviour and run outcomes |
-| `hud.rs` | HUD and level-up choices |
-| `tests.rs` | Survivors-specific tests |
+| Module         | Known responsibility                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `abilities.rs` | Ability definitions, casting, targeting, and effect execution                                                       |
+| `data.rs`      | Gameplay data and supporting definitions                                                                            |
+| `hero.rs`      | Hero-related behaviour and run outcomes                                                                             |
+| `hud.rs`       | HUD and level-up choices                                                                                            |
+| `tests/`       | Survivors-specific test modules (`mod.rs`, `abilities.rs`, `hero_tests.rs`, `rng.rs` at the last reviewed snapshot) |
 
 This list is not exhaustive and must be verified against the current source when implementing changes.
 
@@ -138,20 +138,9 @@ Some of these behaviours may share internal execution paths.
 
 ### Existing hardcoding
 
-The casting implementation reportedly includes a condition equivalent to:
+The initial spell-name-specific targeting check was replaced in P2-001 (`0ad5a48`). `AbilityDef` now carries a `Targeting` value; `Nearest` is the default and `Toughest` is configured for `pyroblast`, `aimed_shot`, `exorcism`, and `starfire`. The casting path reads this configuration rather than matching those spell identifiers.
 
-```rust
-matches!(
-    def.key,
-    "pyroblast" | "aimed_shot" | "exorcism" | "starfire"
-)
-```
-
-This determines a special targeting behaviour for specific spells.
-
-The exact code and surrounding assumptions must be confirmed against the repository before modification.
-
-This is a useful first migration candidate because the behaviour can potentially be represented as explicit ability metadata.
+This is one completed migration, not evidence that all identifier-dependent gameplay logic has been removed. Inspect the current source before identifying another candidate.
 
 ---
 
@@ -206,20 +195,20 @@ Abilities should describe their intended behaviour without containing the execut
 
 ### Conceptual ability properties
 
-| Property | Purpose |
-|---|---|
-| Identifier | Stable reference |
-| Display name | UI text |
-| Class association | Optional class relationship |
-| Behaviour kind | Projectile, melee, area, aura, etc. |
-| Targeting strategy | How targets are selected |
-| Damage parameters | Base damage and scaling |
-| Timing | Cooldown, duration, tick interval |
-| Geometry | Range, radius, cone angle, projectile count |
-| Effects | Damage, healing, shields, status effects |
-| Visual references | Icons, animations, VFX |
-| Audio references | Spell sounds |
-| Upgrade information | Future level scaling and evolution hooks |
+| Property            | Purpose                                     |
+| ------------------- | ------------------------------------------- |
+| Identifier          | Stable reference                            |
+| Display name        | UI text                                     |
+| Class association   | Optional class relationship                 |
+| Behaviour kind      | Projectile, melee, area, aura, etc.         |
+| Targeting strategy  | How targets are selected                    |
+| Damage parameters   | Base damage and scaling                     |
+| Timing              | Cooldown, duration, tick interval           |
+| Geometry            | Range, radius, cone angle, projectile count |
+| Effects             | Damage, healing, shields, status effects    |
+| Visual references   | Icons, animations, VFX                      |
+| Audio references    | Spell sounds                                |
+| Upgrade information | Future level scaling and evolution hooks    |
 
 Not every ability needs every property.
 
@@ -246,7 +235,7 @@ match ability.targeting {
 }
 ```
 
-The exact type names and implementation are undecided.
+This example reflects the implemented P2-001 direction. Check the current source for exact types and call sites before extending it.
 
 ### Avoid excessive generalisation
 
@@ -260,7 +249,7 @@ The goal is to avoid duplicating existing mechanics, not to eliminate all specia
 
 ## 7. Targeting Architecture
 
-**First proposed Phase 2 implementation milestone.**
+**First Phase 2 implementation milestone: completed in commit `0ad5a48`.**
 
 Target selection should be explicit rather than inferred from a spell identifier.
 
@@ -268,7 +257,7 @@ Target selection should be explicit rather than inferred from a spell identifier
 
 Only implement strategies required by existing abilities.
 
-Likely initial candidates:
+Implemented initial strategies:
 
 - `Nearest`
 - `Toughest`
@@ -300,7 +289,9 @@ An area spell might centre on the player without selecting an individual enemy.
 
 Do not force every ability into an enemy-targeting model.
 
-### Migration approach
+### Completed P2-001 migration approach
+
+The following steps describe the completed targeting migration and remain a useful pattern for future incremental changes:
 
 1. Confirm existing targeting rules.
 2. Identify which ability definitions need special targeting.
@@ -310,7 +301,7 @@ Do not force every ability into an enemy-targeting model.
 6. Add tests for ordinary and special targeting.
 7. Verify that existing abilities behave identically.
 
-Do not add unused targeting strategies during the first migration.
+Do not add unused targeting strategies merely to anticipate future content.
 
 ---
 
@@ -441,7 +432,7 @@ These rules must be explicit before implementing a general modifier engine.
 
 **Phase 2 should not introduce a comprehensive modifier framework prematurely.**
 
-The initial targeting migration does not require one.
+The completed targeting migration did not require one.
 
 ---
 
@@ -688,7 +679,7 @@ This may eventually offer a useful balance between extensibility and safety.
 
 Phase 2 begins by improving the existing representation rather than introducing external files immediately.
 
-Revisit this decision after the first targeting migration and content audit.
+The first targeting migration is complete. Revisit this decision only after reviewing actual content-authoring requirements and the current source; no external format has been approved.
 
 ---
 
@@ -833,40 +824,29 @@ Include:
 
 ---
 
-## 21. First Implementation Milestone
+## 21. First Implementation Milestone — P2-001
 
 ### Explicit ability targeting
 
-**Problem**
+**Implementation status:** Implemented and committed as `0ad5a48` (`refactor(survivors): make ability targeting data-driven`).
 
-Some abilities appear to receive special targeting behaviour because their identifiers are checked directly in casting logic.
+**Delivered**
 
-**Proposed solution**
+- Added `Targeting::{Nearest, Toughest}` metadata to ability definitions in `data.rs`.
+- Kept `Nearest` as the default; configured `pyroblast`, `aimed_shot`, `exorcism`, and `starfire` to use `Toughest`.
+- Updated casting in `abilities.rs` to use configured targeting rather than the four spell identifiers.
+- Preserved the existing `nearest()` and `toughest()` selection algorithms.
+- Added focused configuration regression tests.
 
-Represent the targeting choice explicitly in the ability definition.
+**Verification recorded during implementation**
 
-**Initial scope**
+- `cargo check -p benilla-app --tests` succeeded.
+- `cargo test -p benilla-app --lib targeting_` passed: 7 tests, 0 failed. The name filter included tests beyond the two new configuration tests.
+- The complete test suite, native lint workflow, and every original acceptance criterion were **not** independently confirmed by those results; do not infer broader verification.
 
-- Inspect the existing definitions and casting path.
-- Add only the targeting strategies required by existing content.
-- Preserve the current behaviour of all abilities.
-- Remove the specific hardcoded spell-name check.
-- Add focused tests.
-- Avoid unrelated refactoring.
+**Related follow-up work:** Subsequent commits `447bdfd`, `c87cd7c`, `755acb2`, and `c19ef97` extracted Survivors tests into modules. This improves test organisation but does not itself implement the proposed content registry or storage system.
 
-**Acceptance criteria**
-
-- [ ] No spell-name-specific targeting check remains at the identified location.
-- [ ] The affected abilities retain their intended targeting.
-- [ ] Other abilities retain their previous targeting.
-- [ ] The new configuration is understandable and documented.
-- [ ] Relevant tests pass.
-- [ ] The native lint workflow passes.
-- [ ] No unrelated source files are modified.
-
-**Implementation status:** Not started.
-
-See `docs/tasks/next.md` for the executable task specification.
+See `docs/tasks/completed.md` for recorded completed tasks and `docs/tasks/next.md` for the current planning checkpoint. No further implementation milestone is approved by this section.
 
 ---
 

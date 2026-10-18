@@ -131,9 +131,40 @@ It remains a known limitation rather than a completed fix.
 
 ### P2-001 — Explicit Ability Targeting Configuration
 
-**Status:** Not completed — tracked in `docs/tasks/next.md`
+**Status:** Complete
+**Commit:** `0ad5a48` — `refactor(survivors): make ability targeting data-driven`
 
-This task will be added to the completed history only after implementation, review, testing, and commit.
+**Objective:** Replace spell-identifier-specific target selection with explicit ability metadata while preserving existing gameplay behaviour.
+
+**Changes:**
+- Introduced `Targeting` with `Nearest` and `Toughest` variants in `data.rs` and added targeting to ability definitions.
+- Defaulted ability definitions to `Nearest`; configured Pyroblast, Aimed Shot, Exorcism, and Starfire to use `Toughest`.
+- Updated casting in `abilities.rs` to use configured targeting rather than matching those four spell identifiers.
+- Preserved the existing `nearest()` and `toughest()` selection algorithms and targeting-range semantics.
+- Added focused configuration regression tests; existing targeting-helper tests remained in place.
+
+**Verification recorded:**
+- `cargo check -p benilla-app --tests` succeeded.
+- `cargo test -p benilla-app --lib targeting_` passed: **7 passed, 0 failed, 4,299 filtered out**. Two passing tests were new configuration tests; the filter also matched five existing tests.
+- The relevant source diffs were reviewed. This does **not** establish that the entire test suite or native lint workflow passed for P2-001.
+
+**Decision:** Targeting is configured in existing Rust ability definitions. A broader content registry, external content format, and additional targeting strategies remain separate design decisions.
+
+### Phase 2 — Survivors Test Module Extraction
+
+**Status:** Committed refactoring work (no separate P2 task IDs assigned in this record)
+
+**Commits:**
+- `447bdfd` — `refactor(tests): split survivors tests into modules`
+- `c87cd7c` — `refactor(tests): extract ability tests into module`
+- `755acb2` — `refactor(tests): extract hero stats and passives tests`
+- `c19ef97` — `refactor: extract RNGtests into dedicated module`
+
+**Changes:** Split the former monolithic Survivors test file into a module structure under `crates/benilla-app/src/survivors/tests/`, with focused files for abilities, hero tests, and RNG tests.
+
+**Verification limitation:** The commit history confirms these changes were committed. This entry does not claim additional test runs or lint results that have not been supplied.
+
+**Current working-tree note:** A later uncommitted change to `survivors/tests/abilities.rs` was present during the documentation review; it is not part of the commits listed above.
 
 ---
 

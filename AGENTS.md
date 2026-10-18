@@ -18,8 +18,9 @@ This file is authoritative for this fork's goals, crates and process.
 3. **Keep the Rust/Bevy architecture.** Gameplay rules are plain Rust. Presentation is Bevy
    systems. Keep the two separable: pure rules get unit tests.
 4. **Incremental changes.** Small, reviewable commits. No engine rewrites, no speculative
-   abstractions. Content-architecture work is a proposal until a phase says otherwise
-   (`docs/content-architecture-proposal.md`).
+   abstractions. Phase 2 content-system work follows the incremental design in
+   `docs/architecture/content-system.md`. The older `docs/content-architecture-proposal.md`
+   is historical context, not the active implementation plan.
 5. **Tests for behavioural changes.** A change to survivors rules adds or updates a test in
    `crates/benilla-app/src/survivors/` (see "Testing" below).
 6. **No telemetry or unnecessary online services.** Do not add analytics, crash upload, update
@@ -32,25 +33,29 @@ This file is authoritative for this fork's goals, crates and process.
 Phase planning and the current baseline are in `docs/architecture-baseline.md`,
 `docs/security-review.md`, `docs/windows-development.md` and `docs/survivors-smoke-test.md`.
 
+Survivors-specific work should stay in `crates/benilla-app/src/survivors/` where practical.
+Changes to shared Benilla engine code or upstream carries require separate justification and
+explicit user approval before editing; consider native and wasm compatibility.
+
 ## What lives where
 
-| path | what | whose |
-|---|---|---|
-| `crates/warcraft-survivors` | the survivors launcher (`warcraft-survivors.exe`) | ours |
-| `crates/benilla-app/src/survivors/` | the survivors mode: rules, HUD, menu, tests | ours |
-| `crates/benilla-app/src/lib.rs` `run_survivors` | the survivors entry; checks the WoW install first | ours |
-| `crates/benilla-*` | the client engine: formats, world, UI, protocol, app | upstream's, plus our `#[cfg]`-gated carries |
-| `crates/benilla-app/src/webbridge/` | the JavaScript bridge, wasm side | ours |
-| `crates/wenilla` | the wasm entry crate (`#[wasm_bindgen(start)]`) | ours |
-| `crates/wenilla-host` | local dev server: static files, `/data/*`, `/ws/*` relay. Loopback only. | ours |
-| `web/` | the page side: `index.html` (dev page), `boot.js`, `platform.js`, `bridge.js`, `examples/`, `wasi_stubs.js` | ours |
-| `scripts/windows/survivors.ps1` | native Windows: check, test, lint, build, run the survivors game | ours |
-| `scripts/windows/smoke-survivors.ps1` | native smoke test and performance baseline, against a Data folder you supply | ours |
-| `scripts/web-setup.sh`, `scripts/web-build.sh` | toolchain and build for the wasm | ours |
-| `third_party/lua-src`, `third_party/mlua-sys`, `third_party/kira` | vendored and patched; each has a `BENILLA.md` | ours (vendored) |
-| `.github/workflows/survivors-windows.yml` | the Windows survivors gate (tests, no-data launch check) | ours |
-| `.github/workflows/check.yml` | the wasm check and the host and client-carry tests | ours |
-| `.github/workflows/ci.yml` | fmt, clippy, tests and doc gates on Linux for fork pull requests | upstream's, adapted |
+| path                                                              | what                                                                                                        | whose                                       |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `crates/warcraft-survivors`                                       | the survivors launcher (`warcraft-survivors.exe`)                                                           | ours                                        |
+| `crates/benilla-app/src/survivors/`                               | the survivors mode: rules, HUD, menu, tests                                                                 | ours                                        |
+| `crates/benilla-app/src/lib.rs` `run_survivors`                   | the survivors entry; checks the WoW install first                                                           | ours                                        |
+| `crates/benilla-*`                                                | the client engine: formats, world, UI, protocol, app                                                        | upstream's, plus our `#[cfg]`-gated carries |
+| `crates/benilla-app/src/webbridge/`                               | the JavaScript bridge, wasm side                                                                            | ours                                        |
+| `crates/wenilla`                                                  | the wasm entry crate (`#[wasm_bindgen(start)]`)                                                             | ours                                        |
+| `crates/wenilla-host`                                             | local dev server: static files, `/data/*`, `/ws/*` relay. Loopback only.                                    | ours                                        |
+| `web/`                                                            | the page side: `index.html` (dev page), `boot.js`, `platform.js`, `bridge.js`, `examples/`, `wasi_stubs.js` | ours                                        |
+| `scripts/windows/survivors.ps1`                                   | native Windows: check, test, lint, build, run the survivors game                                            | ours                                        |
+| `scripts/windows/smoke-survivors.ps1`                             | native smoke test and performance baseline, against a Data folder you supply                                | ours                                        |
+| `scripts/web-setup.sh`, `scripts/web-build.sh`                    | toolchain and build for the wasm                                                                            | ours                                        |
+| `third_party/lua-src`, `third_party/mlua-sys`, `third_party/kira` | vendored and patched; each has a `BENILLA.md`                                                               | ours (vendored)                             |
+| `.github/workflows/survivors-windows.yml`                         | the Windows survivors gate (tests, no-data launch check)                                                    | ours                                        |
+| `.github/workflows/check.yml`                                     | the wasm check and the host and client-carry tests                                                          | ours                                        |
+| `.github/workflows/ci.yml`                                        | fmt, clippy, tests and doc gates on Linux for fork pull requests                                            | upstream's, adapted                         |
 
 `crates/wenilla-realm` (the realm service) is **not** in this checkout. Any older note that refers
 to it describes a separate repository and does not apply here.
@@ -160,7 +165,7 @@ google-chrome --user-data-dir=/tmp/wenilla-chrome --enable-unsafe-webgpu --remot
 Full layers, commands and acceptance criteria are in `docs/testing.md`. The rules for a change:
 
 - A change to survivors rules adds a test. Pure rules (damage, cooldowns, XP, rarity, offers,
-  slots, schedules, scaling, targeting) live in `crates/benilla-app/src/survivors/tests.rs` or in
+  slots, schedules, scaling, targeting) live in `crates/benilla-app/src/survivors/tests/` or in
   an in-file `#[cfg(test)] mod tests` next to private helpers.
 - A change to the run loop, the clock, the boss schedule, or the victory and death paths also keeps
   the headless simulation passing (`survivors/sim.rs`, the `scenarios` module). The simulation runs the
@@ -192,34 +197,79 @@ Full layers, commands and acceptance criteria are in `docs/testing.md`. The rule
 
 ## Where to look when
 
-| symptom | look at |
-|---|---|
-| the game exits at start with "needs a WoW 1.12.1 Data folder" | point `WOW_DATA` or `-DataDir` at a folder that holds `terrain.MPQ` and `patch.MPQ` |
-| the game opens and sits on a loading screen | the install is incomplete or missing; check the stderr for `Asset Source 'mpq' does not exist` |
-| a survivors rule seems wrong | the rule's test in `survivors/tests.rs`; the numbers are in `survivors/data.rs` |
-| `cargo build` fails to link on Windows | run `-Action Check`; confirm Visual Studio has the C++ workload and a Windows SDK |
-| the wasm panics at boot with `RuntimeError: unreachable` | rebuild with `WEB_DEBUG=1`; check for a WebGPU adapter first; `?bridge=0` rules the bridge out |
-| a page feature works on the dev page and not on the realm | the `cp` line in `web-build.sh`, then `play.html` vs `index.html` |
-| wasm-bindgen glue errors at load | version drift: rerun `scripts/web-setup.sh` |
+| symptom                                                       | look at                                                                                        |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| the game exits at start with "needs a WoW 1.12.1 Data folder" | point `WOW_DATA` or `-DataDir` at a folder that holds `terrain.MPQ` and `patch.MPQ`            |
+| the game opens and sits on a loading screen                   | the install is incomplete or missing; check the stderr for `Asset Source 'mpq' does not exist` |
+| a survivors rule seems wrong                                  | the rule's test in `survivors/tests/`; the numbers are in `survivors/data.rs`                  |
+| `cargo build` fails to link on Windows                        | run `-Action Check`; confirm Visual Studio has the C++ workload and a Windows SDK              |
+| the wasm panics at boot with `RuntimeError: unreachable`      | rebuild with `WEB_DEBUG=1`; check for a WebGPU adapter first; `?bridge=0` rules the bridge out |
+| a page feature works on the dev page and not on the realm     | the `cp` line in `web-build.sh`, then `play.html` vs `index.html`                              |
+| wasm-bindgen glue errors at load                              | version drift: rerun `scripts/web-setup.sh`                                                    |
+| an upstream merge broke only the wasm build                   | `cargo check --target wasm32…`; the `cvars.rs` struct-vs-tuple case is the pattern             |
+| no sound in the browser                                       | both pages resume AudioContext on the first gesture; mixer carry in `sound/mixer.rs`           |
+| the world freezes at zone lines                               | wasm soundscape carry in `sound/zone.rs` and `sound/web_load.rs`                               |
+| browser stalls when first playing a sound                     | deferred SFX carry in `sound/kit/deferred.rs` and related glue/cinematic code                  |
+| the prod image differs from `main`                            | `wenilla-realm/docs/RELEASE.md` (separate repository), "When it breaks"                        |
 
-| an upstream merge broke only the wasm build | `cargo check --target wasm32…`; the `cvars.rs` struct-vs-tuple case is the pattern |
-| no sound in the browser | both pages resume the AudioContext on the first gesture; the per-target mixer backend is our carry in `sound/mixer.rs` |
-| the world freezes ~200 ms at zone lines | the soundscape carry (`sound/zone.rs`, `sound/web_load.rs`), wasm-only |
-| short stalls in the browser on the first play of a sound (combat, a new creature, footsteps on new ground) | the SFX carry (`sound/kit/deferred.rs`, the glue and cinematic arms of `sound/glue.rs`/`sound/cinematic.rs`), wasm-only |
-| the prod image is not what `main` says | wenilla-realm/docs/RELEASE.md, "When it breaks" |
+## AI agent operating rules
 
-## Project context
+These rules apply to every automated coding agent. **Preserving existing work takes priority over completing a task.** Instructions to stop, ask for approval, or avoid commands are mandatory, not suggestions.
 
-Before beginning implementation, read:
+### Scope and preparation
 
-- `docs/PROJECT_STATUS.md`
-- `docs/tasks/next.md`
+1. Read `docs/PROJECT_STATUS.md` and `docs/tasks/next.md` before implementation. Read other documentation only when relevant. For engine changes, also follow the upstream documents identified at the top of this file.
+2. Inspect the specific source files and exact sections involved before editing. Identify the intended files and edits; do not conduct broad repository scans without a reason.
+3. Work only within the user's requested scope. If the user requires source review or approval first, wait for it.
+4. Preserve unrelated code, tests, comments, imports, formatting, and local changes. Never assume the working tree is clean.
+5. Do not modify `AGENTS.md`, project status, or task backlog unless the task explicitly permits documentation updates. After verified implementation, **propose** any relevant status/backlog updates rather than making them automatically.
 
-Read other documentation only when relevant to the assigned task.
+### Safe file editing
 
-Work only on the explicitly requested task. Avoid unrelated
-refactoring, broad repository scans, and long-running test suites
-unless necessary.
+1. **Use `write`/create-file tools only for files verified not to exist.** A tool that replaces the complete contents of a path must never be used on an existing file for a small edit. Check file existence first.
+2. For existing files, use a targeted edit/patch tool with a small, unique, exact-match context. Read the target section immediately before editing.
+3. Never replace or reconstruct an entire existing file to insert, remove, or move a small section. Never recreate source from conversation history, model memory, or a partial tool response.
+4. For a move/extraction, preserve test bodies and unrelated code verbatim except for necessary import/path changes. Verify that moved items appear once, not zero or twice.
+5. After each edit, inspect the affected region. Before declaring completion, inspect the final diff and check for unexpected deletions or changes.
+6. Do not use shell scripts, redirection, search-and-replace across entire files, or alternate tools to bypass a failed targeted edit.
 
-After verified implementation changes, update project status
-and the task backlog when applicable.
+### Failure limits and emergency stop
+
+1. If a targeted edit fails, reread the current file and identify the mismatch. Make **at most one** corrected retry. After two failed attempts, **stop** and report the failure. Do not switch to a wholesale rewrite.
+2. If an existing file is accidentally truncated, overwritten, deleted, or substantially changed outside scope, **stop all editing immediately**. Report the path, the operation and its observed effect. **Do not attempt recovery yourself.**
+3. In particular, never reconstruct an accidentally overwritten file from tool output or chat history. Git or backups may contain the correct original, but only the user decides how to restore it.
+4. Never run `git restore`, `git checkout`, `git reset`, `git clean`, `git stash`, or any other command that discards or replaces working-tree changes without explicit permission.
+5. Do not repeat a failing command unchanged. A new attempt requires a specific, stated hypothesis and must respect any retry limit.
+6. If blocked, stop and report what succeeded, what failed, and what remains unfinished. **Do not improvise an increasingly invasive workaround.**
+
+### Commands, Git, and verification
+
+1. Use Windows PowerShell commands on the native development machine. Do not stage, commit, push, amend, merge, rebase, or delete files without explicit user approval.
+2. Never run `cargo clean`, delete build caches, or change `CARGO_TARGET_DIR` without permission. Do not run Cargo when the task forbids it.
+3. Avoid unnecessary long-running builds. After a timeout or linker failure, report it; do not launch repeated expensive builds without a new hypothesis and approval where required.
+4. A test passes only when the runner explicitly reports success and at least one relevant test executed. A timeout, partial output, compile failure, or linker error is **not** a pass.
+5. Report exactly which verification commands were run, their outcomes, and anything not verified. Never claim success based only on editing-tool approval.
+
+### Completion and handoff
+
+1. Review the changed files and diff. Report the exact files created or modified and any unexpected changes.
+2. State what was verified and what still needs human testing or review.
+3. Stop after the assigned task. Do not start follow-up work independently.
+
+**Emergency rule:** If uncertain whether an action could destroy existing work, do not perform it. Ask the user first.
+
+### Mandatory completion report
+
+At the end of every coding task, report:
+
+- **Modified files:** Every existing file changed during this task.
+- **Created files:** Every new file created during this task, including untracked files.
+- **Deleted files:** Every file deleted during this task, or explicitly state "None".
+- **Verification:** Exact commands run and their outcomes. Distinguish passed, failed, skipped and not run.
+- **Remaining work:** Anything incomplete, unverified or requiring user review.
+
+Record the initial Git status before editing so pre-existing changes are not mistaken for changes made during the task.
+
+Do not rely on `git diff` alone to identify new files: untracked files are excluded.
+
+Never claim that a task is complete without reporting its full file impact.

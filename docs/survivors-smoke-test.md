@@ -3,7 +3,7 @@
 This checklist covers the native Windows build (`warcraft-survivors.exe`). It separates checks the
 automated autopilot can make from checks that need a person looking at the screen.
 
-**Current status (end of testing finalisation): run and passed, with data.** The launch with the
+**Historical status (2026-10-17): automated smoke checks passed with data; manual visual checks remain open.** The launch with the
 user's WoW 1.12.1 Data folder ran the autopilot legs and passed 17 of 17 automated checks
 (run `20261017-165007`, release build). Steps 1 to 12 are covered below. Visual checks that a
 person must confirm are listed in section 4. The results and performance figures are in
@@ -49,7 +49,13 @@ Log lines to match (from `survivors/auto.rs` and the outcome handler in `survivo
 Screenshots (saved every six seconds, and once for the menu, first level-ups and the results
 screen) go to `WOW_SURVIVORS_SHOTS`.
 
-The checks script, to run once the data is in place:
+For the repeatable automated smoke checks, run from the repository root:
+
+```powershell
+.\scripts\windows\smoke-survivors.ps1 -DataDir "<your WoW 1.12.1 Data folder>" -Release
+```
+
+The following is a historical, manual debugging example rather than the automated checks script:
 
 ```powershell
 $log = Join-Path $env:TEMP 'survivors-smoke.log'
@@ -64,18 +70,18 @@ Stop-Process -Id $p.Id
 
 | # | Step | How it is checked | Status |
 | --- | --- | --- | --- |
-| 1 | Native game launch | **Automated:** `warcraft-survivors.exe` starts with complete data, opens a window titled `Warcraft Survivors`, and still responds after 30 s. Without data it refuses to start and exits non-zero (automated and **Passed**, see below). | With data: **Blocked**. Without data: **Passed** (refusal). |
-| 2 | Main menu rendering | **Manual** plus the `menu.png` screenshot from the autopilot. A person checks the pick screen draws its art and text. | **Blocked** (needs data and a screen) |
-| 3 | Character and map selection | **Automated:** the autopilot selects `WOW_SURVIVORS_MAP` and the class, and the log line `run begins as <class> at <zone>` matches. **Manual:** the picks appear on screen. | **Blocked** |
-| 4 | Starting a run | **Automated:** `run begins` line appears, then a `Playing` status line. | **Blocked** |
-| 5 | Enemy spawning and movement | **Automated:** `alive=` is greater than zero in status lines and rises over time. **Manual:** enemies visibly move toward the hero in the screenshots. | **Blocked** |
-| 6 | Automatic ability casting | **Automated:** `damage=` increases in status lines, and `build=` lists the owned abilities. **Manual:** spell visuals play. | **Blocked** |
-| 7 | Damage, health and death | **Automated:** `hp=` falls over time in `Warrior:idle`, and the line `run over: died` appears. | **Blocked** |
-| 8 | XP collection and level-ups | **Automated:** `level=` rises in status lines. | **Blocked** |
-| 9 | Card selection | **Automated:** the LevelUp phase is reached and a pick is made, which the `level=` line confirms after the pick. **Manual:** card art, rarity colours and text are checked in `levelup-*.png`. | **Blocked** |
-| 10 | Boss spawning | **Automated:** `survivors: boss <name> spawned` appears at about 135 s, then every 135 s. Use `<class>:late` to reach boss time quickly. | **Blocked** |
-| 11 | Victory and defeat | **Automated:** `run over: won` in `:late` mode after about 5 minutes; `run over: died` in `:idle` mode. | **Blocked** |
-| 12 | Returning to the menu | **Automated:** after a game over, the next `run begins` line appears about six seconds later, which means the menu ran and a new run started. | **Blocked** |
+| 1 | Native game launch | **Automated:** `warcraft-survivors.exe` starts with complete data, opens a window titled `Warcraft Survivors`, and still responds after 30 s. Without data it refuses to start and exits non-zero (automated and **Passed**, see below). | **Passed** with data; no-data refusal also passed. |
+| 2 | Main menu rendering | **Automated:** `menu.png` captured. **Manual:** confirm the pick screen draws its art and text. | **Screenshot captured**; manual visual review open. |
+| 3 | Character and map selection | **Automated:** the autopilot selects `WOW_SURVIVORS_MAP` and the class, and the log line `run begins as <class> at <zone>` matches. **Manual:** the picks appear on screen. | **Automated passed**; manual visual review open. |
+| 4 | Starting a run | **Automated:** `run begins` line appears, then a `Playing` status line. | **Passed**. |
+| 5 | Enemy spawning and movement | **Automated:** `alive=` is greater than zero in status lines and rises over time. **Manual:** enemies visibly move toward the hero in the screenshots. | **Spawning passed**; movement visual review open. |
+| 6 | Automatic ability casting | **Automated:** `damage=` increases in status lines, and `build=` lists the owned abilities. **Manual:** spell visuals play. | **Casting passed**; spell visual review open. |
+| 7 | Damage, health and death | **Automated:** `hp=` falls over time in `Warrior:idle`, and the line `run over: died` appears. | **Passed**; death results screen visual review open. |
+| 8 | XP collection and level-ups | **Automated:** `level=` rises in status lines. | **Passed**. |
+| 9 | Card selection | **Automated:** the LevelUp phase is reached and a pick is made, which the `level=` line confirms after the pick. **Manual:** card art, rarity colours and text are checked in `levelup-*.png`. | **Automated passed**; card visual review open. |
+| 10 | Boss spawning | **Automated:** `survivors: boss <name> spawned` appears at about 135 s, then every 135 s. Use `<class>:late` to reach boss time quickly. | **Passed**. |
+| 11 | Victory and defeat | **Automated:** `run over: won` in `:late` mode after about 5 minutes; `run over: died` in `:idle` mode. | **Passed** for logged outcomes; death results screen visual review open. |
+| 12 | Returning to the menu | **Automated:** after a game over, the next `run begins` line appears about six seconds later, which means the menu ran and a new run started. | **Passed**. |
 
 ## 4. Results
 
@@ -105,6 +111,6 @@ spell visuals and enemy movement, and the death results screen.
 
 | Kind | What it covers | Where it runs |
 | --- | --- | --- |
-| Automated, no data | 69 survivors tests for rules, schedules, offers and the launch check, plus the four headless whole-run scenarios; the no-data launch refusal | `scripts/windows/survivors.ps1 -Action Test`, `.github/workflows/survivors-windows.yml` |
+| Automated, no data | Historical Phase 1 result: 69 Survivors tests, including the four headless whole-run scenarios, plus the no-data launch refusal; not a current test count | `scripts/windows/survivors.ps1 -Action Test`, `.github/workflows/survivors-windows.yml` |
 | Automated, data needed | Autopilot legs: steps 1 to 12 through the log, screenshots, and the perf journal | Local, `scripts/windows/smoke-survivors.ps1 -DataDir <Data>` |
 | Manual | Visual checks: menu art, card visuals, spell effects, camera feel, audio | Local, with a screen |

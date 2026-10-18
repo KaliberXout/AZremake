@@ -1,195 +1,46 @@
 # Azeroth Survivors — Next Development Task
 
 **Phase:** 2 — Data-Driven Content System  
-**Task ID:** P2-001  
-**Title:** Replace hardcoded ability targeting with explicit configuration  
-**Status:** Ready for source inspection  
-**Assigned assistant:** Continue / Qwen3 14B  
-**Last updated:** 2026-10-17
+**Task ID:** Pending — next scoped task not yet agreed
+**Status:** Read-only source review and task selection
+**Assigned assistant:** Not assigned
+**Last updated:** 2026-10-18
 
-## 1. Objective
+## 1. Current verified repository history
 
-Remove the existing dependency on specific spell names when deciding whether an ability targets the nearest or toughest enemy.
+P2-001 (data-driven ability targeting) is implemented in commit `0ad5a48` on `phase2/content-system`. The earlier implementation review recorded a successful `cargo check -p benilla-app --tests` and `cargo test -p benilla-app --lib targeting_` (7 passed). These were focused checks, not a clean full-suite result.
 
-Represent this choice explicitly in the ability definition while preserving current gameplay behaviour.
+Subsequent committed test-organisation work:
 
-This is the first small migration towards the data-driven content architecture.
+- `447bdfd` — split Survivors tests into modules.
+- `c87cd7c` — extract ability tests.
+- `755acb2` — extract hero stats and passives tests.
+- `c19ef97` — extract RNG tests.
 
-## 2. Background
+At the last Git inspection, `HEAD` and `origin/phase2/content-system` both pointed to `c19ef97`. This is a snapshot, not a guarantee about future repository state. Do **not** repeat P2-001 or restart the test extraction from the obsolete `survivors/tests.rs` layout.
 
-The existing casting code in:
+## 2. Next action — read-only inspection
 
-`crates/benilla-app/src/survivors/abilities.rs`
+Before assigning another coding task:
 
-appears to contain logic equivalent to:
+1. Inspect `git status --short` and the relevant current source and test modules. Preserve all pre-existing modifications and untracked files.
+2. Inspect `crates/benilla-app/src/survivors/tests/mod.rs` and its existing child modules, and confirm what tests remain in `mod.rs` before proposing further extraction.
+3. Inspect `crates/benilla-app/src/survivors/data.rs` and its dependencies if considering content-definition modularisation. Do not assume its size or boundaries from older planning notes.
+4. Review the active design in `docs/architecture/content-system.md` and the recorded history in `docs/tasks/completed.md`.
+5. Propose **one** small, behaviour-preserving next task with exact files, acceptance criteria and narrow verification commands. Obtain user approval before implementation.
 
-```rust
-if matches!(
-    def.key,
-    "pyroblast" | "aimed_shot" | "exorcism" | "starfire"
-) {
-    toughest(&foes, reach, p.count)
-} else {
-    nearest(&foes, reach, p.count)
-}
-```
+The next task ID, ownership and scope are **not yet decided**. Do not create a speculative P2-002 implementation or start a broad refactor.
 
-The exact source must be inspected before making changes.
+## 3. Safety and verification rules
 
-The problem is that targeting behaviour depends on the spell identifier rather than a property of the ability.
+- Follow `AGENTS.md` and the user's explicit approval workflow.
+- Inspect existing tests before adding tests; avoid duplicates and changes to established targeting semantics.
+- Preserve unrelated code, tests, documentation and local changes. Do not run `cargo fmt --all`.
+- Use native Windows PowerShell commands and the narrowest relevant Cargo test or check command.
+- Distinguish compilation, linking, executed tests and passed assertions. Report failures and incomplete verification accurately.
+- Do not stage, commit, push, reset, restore, clean, delete or otherwise alter Git state without explicit permission.
+- After an approved edit, inspect the affected region, `git --no-pager diff -- <path>`, `git diff --check`, and `git status --short` before reporting completion.
 
-This makes it harder to introduce new abilities that reuse the same targeting behaviour.
+## 4. Task-selection checkpoint
 
-## 3. Desired Behaviour
-
-An ability definition should explicitly determine whether it targets:
-
-- The nearest valid enemy.
-- The toughest valid enemy.
-
-Existing abilities must continue using the same targeting rules.
-
-In particular:
-
-- Pyroblast should retain its existing targeting behaviour.
-- Aimed Shot should retain its existing targeting behaviour.
-- Exorcism should retain its existing targeting behaviour.
-- Starfire should retain its existing targeting behaviour.
-- Other abilities should retain their existing default targeting behaviour.
-
-Do not change targeting range, target count, damage, cooldowns or other ability mechanics.
-
-## 4. Proposed Implementation
-
-The following is illustrative, not mandatory:
-
-```rust
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Targeting {
-    Nearest,
-    Toughest,
-}
-```
-
-Add a targeting property to the existing ability definition.
-
-Configure the four existing special-case abilities to use `Toughest`.
-
-Other abilities should use `Nearest` where that matches existing behaviour.
-
-Replace the spell-name check in the casting code with a check against the configured targeting strategy.
-
-Use the simplest approach that fits the current Rust structures.
-
-## 5. Strict Scope
-
-Expected primary file:
-
-`crates/benilla-app/src/survivors/abilities.rs`
-
-A focused existing test file may also be changed if required.
-
-Allowed changes:
-
-- A small targeting enum or equivalent representation.
-- A targeting property in the existing definition.
-- Updates to affected ability definitions.
-- Replacement of the existing spell-name targeting condition.
-- Focused tests.
-
-Not allowed:
-
-- Rewriting the casting system.
-- Changing other ability mechanics.
-- Moving ability definitions into external files.
-- Introducing new crates or dependencies.
-- Refactoring unrelated modules.
-- Renaming existing ability identifiers.
-- Reformatting unrelated files.
-- Adding unused targeting strategies.
-- Changing UI or graphics.
-- Changing the game's balance intentionally.
-
-If the task requires a larger change than expected, stop and report the reason before proceeding.
-
-## 6. Required Inspection Before Editing
-
-Before making any changes:
-
-1. Locate the ability definition structure.
-2. Identify how ability definitions are constructed.
-3. Find all references to the ability definition.
-4. Confirm the exact targeting condition in the casting logic.
-5. Identify the four affected ability definitions.
-6. Check whether existing tests cover targeting behaviour.
-
-Report findings before editing.
-
-Do not assume the proposed structure matches the current code.
-
-## 7. Acceptance Criteria
-
-- [ ] Targeting strategy is explicitly represented in ability configuration.
-- [ ] The four special-case abilities retain toughest-target selection.
-- [ ] All other relevant abilities retain nearest-target selection.
-- [ ] The identified hardcoded spell-name check is removed.
-- [ ] No gameplay parameters are changed unintentionally.
-- [ ] No new dependency is introduced.
-- [ ] Focused tests verify targeting configuration or selection.
-- [ ] Existing Survivors tests pass.
-- [ ] Relevant formatting and lint checks pass.
-- [ ] Only task-related files are modified.
-
-## 8. Verification
-
-Run from the repository root in PowerShell.
-
-### Inspect the diff
-
-```powershell
-git diff --check
-git diff --stat
-git diff -- crates/benilla-app/src/survivors/abilities.rs
-```
-
-Inspect any changed test files separately.
-
-### Run project validation
-
-```powershell
-.\scripts\windows\survivors.ps1 -Action Lint
-```
-
-Run the relevant Survivors tests using the repository's established test workflow.
-
-If the exact test command is unclear, inspect the existing script or documentation rather than guessing.
-
-### Review
-
-Confirm:
-
-- All existing ability definitions compile.
-- The intended four abilities use toughest targeting.
-- Default targeting is unchanged.
-- No unrelated files were modified.
-- No unrequested architectural changes were introduced.
-
-Do not commit automatically.
-
-## 9. Completion Procedure
-
-After the implementation has been reviewed and verified:
-
-1. Commit the focused code change.
-2. Record the completed task in `docs/tasks/completed.md`.
-3. Update `docs/architecture/content-system.md` to reflect the actual implementation.
-4. Update `docs/PROJECT_STATUS.md` if the verified project state changes.
-5. Select the next small Phase 2 task.
-
-Do not begin another implementation task automatically.
-
-## 10. Success Definition
-
-**The task is successful when adding another ability that targets the toughest enemy requires changing its definition, not adding its name to the casting logic.**
-
-Existing gameplay must remain unchanged.
+**Current priority:** Agree on the next maintainable, incremental Phase 2 improvement based on the actual code. The historical P2-001 specification has been superseded by its committed implementation; refer to commit `0ad5a48` and `docs/tasks/completed.md` for history rather than treating it as outstanding work.

@@ -1,5 +1,13 @@
 # Syncing upstream benilla
 
+> **Historical reference — inherited Wenilla/Benilla workflow (not current Azeroth Survivors policy).**
+> This document records how the earlier fork synchronised engine changes with upstream.
+> Its branch model, pull-request destination, production pinning and browser release gates
+> are **not instructions** for the Azeroth Survivors repository. For current project
+> direction and coding-agent rules, use `docs/PROJECT_STATUS.md`, `docs/tasks/next.md`
+> and `AGENTS.md`. Before any upstream sync, inspect the actual remotes, branches,
+> carried changes and validation requirements, and agree a separate plan.
+
 Upstream is [samwhosung/benilla](https://github.com/samwhosung/benilla). Since September 2026 it
 takes issues and pull requests (`docs/CONTRIBUTING.md`, `docs/METHOD.md`) and moves `main` only by
 squash-merged pull requests; it still never builds the wasm target, so a wasm-only fix is still

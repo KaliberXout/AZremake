@@ -2,20 +2,23 @@
 
 The native survivors game (`warcraft-survivors.exe`) is the Phase 1 target. This guide covers the
 toolchain, the commands, how the WoW 1.12.1 data is configured, and what was verified on this
-machine. Anything not run is marked as such.
+machine during Phase 1. Anything not run in that historical verification is marked as such.
+Later Phase 1 results and Phase 2 checks are distinguished below; this is not a record of a new full validation run.
 
 ## 1. Summary
 
 - Build: **passes** (dev and release, Rust 1.98.1, MSVC, Windows 11 SDK).
-- Survivors unit, install and headless simulation tests: **pass** (69 tests, no game data needed).
+- Survivors unit, install and headless simulation tests: **passed** (69 tests in the later Phase 1 run; no game data needed).
 - Launch without game data: **refuses to start**, exits non-zero, and names the folders it
   searched. Before Phase 1 it opened a window and hung on a loading screen.
 - Launch with the user's WoW 1.12.1 data and the native smoke test: **passed**, 17 of 17 automated
   checks (run `20261017-165007`). See [survivors-smoke-test.md](survivors-smoke-test.md) and
   [testing.md](testing.md).
-- Clippy with `-D warnings` on the whole workspace: **passes** (`cargo clippy --workspace
-  --all-targets`). `cargo fmt --all --check` still fails on 13 files outside survivors, which is
-  not changed. Full library tests: 4,293 pass and 1 fails (the `SweepUiMaterial` warm-up test).
+- In the later Phase 1 verification, workspace Clippy with `-D warnings` **passed**
+  (`cargo clippy --workspace --all-targets -- -D warnings`). The recorded
+  `cargo fmt --all -- --check` run failed on 13 files outside Survivors.
+  The later full-library run recorded 4,293 passed and 1 failed (the `SweepUiMaterial`
+  warm-up coverage test). These are historical results, not newly rerun checks.
 
 ## 2. Prerequisites (verified)
 
@@ -103,14 +106,16 @@ build, which is secondary on Windows (section 7).
 
 ## 6. Verification log
 
-Each row is a command that was actually run in this Phase 1 session, with its result.
+Each row records a command from the earlier Phase 1 verification session and its result.
+Some failures were resolved in subsequent Phase 1 work; the later results are documented in
+[testing.md](testing.md). Do not treat the earlier failures or test counts as current results.
 
 | # | Command | Result | Notes |
 | --- | --- | --- | --- |
 | 1 | `winget install --id Rustlang.Rustup -e` | **Passed** | rustup 1.29.1, installer hash verified by winget |
 | 2 | `rustup show` (in repo) | **Passed** | Installed toolchain 1.98.1 with clippy and rustfmt |
 | 3 | `cargo fmt --all -- --check` | **Failed** (pre-existing) | 13 files outside survivors: `ui_chat/settings.rs`, `benilla-assets/src/lib.rs`, `benilla-protocol/` (5 files), `benilla-world/` (3), `benilla-ui/src/script/tick.rs`. Phase 1 did not reformat them, because that is unrelated work. |
-| 4 | `rustfmt --edition 2021 --check crates\benilla-app\src\survivors\mod.rs` | **Passed** | Covers every survivors module, including the new `install.rs` and `tests.rs`. |
+| 4 | `rustfmt --edition 2021 --check crates\benilla-app\src\survivors\mod.rs` | **Passed** | Historical result: covered the then-current Survivors modules, including `install.rs` and `tests.rs`. Tests have since been split under `survivors/tests/`. |
 | 5 | `cargo check -p warcraft-survivors` | **Passed** | 2m 58s from cold |
 | 6 | `cargo build -p warcraft-survivors` (dev) | **Passed** | 10m from cold |
 | 7 | `scripts\windows\survivors.ps1 -Action Build -Release` (first) | **Passed** | 6m 33s |
@@ -129,12 +134,14 @@ Each row is a command that was actually run in this Phase 1 session, with its re
 
 ### Item 11: full library test run
 
-4,283 passed, 4 failed, 10 ignored. The same four fail before and after the lint commit. They are
-**left for later investigation** and are not part of Phase 1's lint work.
+Historical result: 4,283 passed, 4 failed, 10 ignored. The same four failed before and
+after the lint commit. Three of those failures were subsequently fixed; the later Phase 1
+run recorded 4,293 passed, 1 failed, 10 ignored. See [testing.md](testing.md), section 6.
+The table below preserves the original failure investigation.
 
 | Test | Cause | In Phase 1 scope? |
 | --- | --- | --- |
-| `pipe_warm::menagerie::tests::every_material_lane_has_a_warm_contributor` | `SweepUiMaterial`, registered in `survivors/mod.rs`, has no pipe_warm contributor. Its pipelines would compile on first use during play, not behind the loading cover. This is a real first-sight stall risk. The registration predates Phase 1. | **Yes, and not fixed.** Adding a contributor means extending the menagerie warm pass, which is delicate engine code. Recommended for Phase 2. See section 8. |
+| `pipe_warm::menagerie::tests::every_material_lane_has_a_warm_contributor` | `SweepUiMaterial`, registered in `survivors/mod.rs`, has no pipe_warm contributor. The missing contributor is a static warm-up coverage failure; later trace evidence showed the sweep pipeline compiling behind the loading cover, not an observed first-sight stall. The registration predates Phase 1. | **Yes, and not fixed.** Adding a contributor means extending the menagerie warm pass, which is delicate engine code. Still open as an engine warm-up follow-up; not automatically part of Phase 2 content-system scope. See section 8. |
 | `ui_script::verb_event_gate::the_declared_rows_are_still_true` | Stale declarations for `ui_auction/mod.rs` (the file is `ui_auction.rs` in this checkout) | No |
 | `ui_script::verb_event_gate::every_event_the_reference_fires_from_a_verb_is_fired_by_the_verb_s_module` | `AddSkillUp` fires `SKILL_LINES_CHANGED` from another module | No |
 | `ui_session::tests::every_npc_session_is_portrait_bound_or_explicitly_excluded` | An NPC session is neither portrait-bound nor excluded | No |
@@ -159,14 +166,21 @@ so `web/tests` was not run either. The `wasm32` `cargo check` from `check.yml` w
 
 ## 8. Blockers and decisions
 
-1. **No WoW 1.12.1 data blocker is resolved.** The user's Data folder ran the native smoke test
+1. **The WoW 1.12.1 data blocker was resolved.** The user's Data folder ran the native smoke test
    (run `20261017-165007`, 17 of 17 automated checks). See [testing.md](testing.md).
-2. **`SweepUiMaterial` has no warm-up contributor** (one failing engine test). Follow-up task; see
-   testing.md section 6.
-3. **Clippy in workspace mode** passes. The survivors crates are also gated by
+2. **`SweepUiMaterial` has no warm-up contributor** (one failing engine coverage test
+   in the later recorded run). The sweep pipeline was observed compiling behind the loading
+   cover; this is not evidence of an in-play stall. Follow-up task; see
+   [testing.md](testing.md), section 6.
+3. **Clippy in workspace mode** passed in the later recorded Phase 1 run. The survivors crates are also gated by
    `survivors-windows.yml` with `--no-deps`, which needs no game data.
-4. **`cargo fmt --all --check`** fails on 13 files outside survivors. Not changed.
-5. **Browser build** was not verified on Windows.
+4. **`cargo fmt --all -- --check`** failed on 13 files outside Survivors in the
+   recorded Phase 1 run. Those files were left unchanged.
+5. **Browser build** was not verified on Windows during Phase 1.
+6. **Phase 2 targeted verification:** the P2-001 targeting change (`0ad5a48`) was
+   checked with `cargo check -p benilla-app --tests` and
+   `cargo test -p benilla-app --lib targeting_` (7 passed, 0 failed). This does not
+   establish a new full-library, lint, native smoke, or release-build result.
 
 ## 9. Troubleshooting
 

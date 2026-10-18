@@ -2,7 +2,7 @@
 
 **Status:** Active  
 **Current phase:** Phase 2 — Data-Driven Content System  
-**Last updated:** 2026-10-17
+**Last updated:** 2026-10-18
 
 ## 1. Project Vision
 
@@ -87,6 +87,8 @@ See `docs/PROJECT_STATUS.md` for the recorded test and performance results.
 
 **Status: CURRENT**
 
+**Implemented milestone:** P2-001 (explicit ability targeting) was committed as `0ad5a48`. Subsequent commits `447bdfd`, `c87cd7c`, `755acb2`, and `c19ef97` reorganised Survivors tests into modules. These changes do not complete the broader Phase 2 architecture.
+
 ### Goal
 
 Separate gameplay content definitions from the systems that execute them, making it easier to add abilities, enemies, classes, and other content without repeatedly modifying engine logic.
@@ -115,7 +117,7 @@ Document the existing behaviour before changing it.
 
 Introduce explicit configuration for behaviours that are currently determined by particular spell identifiers.
 
-First candidate: ability targeting strategy.
+First implemented step: ability targeting strategy (`Targeting::Nearest` / `Targeting::Toughest`, P2-001).
 
 For example:
 
@@ -171,7 +173,7 @@ The goal is to demonstrate that the architecture actually reduces implementation
 ### Phase 2 completion criteria
 
 - [ ] Existing content architecture documented.
-- [ ] Initial targeting hardcoding replaced with explicit configuration.
+- [x] Initial targeting hardcoding replaced with explicit configuration (P2-001, `0ad5a48`).
 - [ ] Content-definition conventions established.
 - [ ] Content validation covered by automated tests.
 - [ ] At least one new ability added through the improved architecture.
@@ -574,11 +576,11 @@ Avoid large, loosely defined AI coding requests.
 
 ### AI assistance
 
-Use Continue with local Qwen3 for contained tasks and code investigation.
+Use Codex for scoped source inspection and, only after scope is agreed, narrowly defined implementation tasks. Local assistants remain optional and experimental rather than the default task owner.
 
-Reserve cloud Codex for difficult cross-module work and problems requiring more extensive reasoning.
+Review the actual local source and existing tests before assigning edits. Preserve unrelated working-tree changes; do not let an assistant stage, commit, push, reset, clean, or delete files without explicit approval.
 
-All generated changes require review and appropriate testing.
+All generated changes require diff review and appropriate testing by the developer.
 
 ### Documentation
 
@@ -587,7 +589,7 @@ Maintain the following files:
 - `docs/PROJECT_STATUS.md` — current verified project state.
 - `docs/roadmap.md` — planned development milestones.
 - `docs/architecture/content-system.md` — architectural decisions.
-- `docs/tasks/next.md` — immediate implementation task.
+- `docs/tasks/next.md` — immediate task or planning checkpoint.
 - `docs/tasks/completed.md` — completed work and verification.
 
 Update these documents when milestones, architecture, or implementation priorities change.
@@ -596,15 +598,16 @@ Update these documents when milestones, architecture, or implementation prioriti
 
 ## 13. Current Priority
 
-**Phase 2, first milestone: explicit ability targeting configuration.**
+**Phase 2, next milestone: select a small, evidence-based content-system improvement.**
 
-Before implementation:
+P2-001 targeting is implemented and committed. Before authorising another code change:
 
-1. Inspect the existing ability definitions and casting code.
-2. Confirm which abilities currently have special targeting rules.
-3. Agree on the smallest suitable data-model change.
-4. Write a focused task for the local coding assistant.
-5. Implement without changing gameplay behaviour.
-6. Run targeted tests and review the diff.
+1. Inspect the current content-system architecture and relevant source files.
+2. Account for the recently modularised Survivors tests and existing coverage.
+3. Identify a specific remaining hardcoded dependency or content-definition problem.
+4. Agree on one small task, its boundaries, and its verification steps.
+5. Only then assign a scoped implementation task; review the diff and targeted test results before accepting it.
+
+No new Phase 2 implementation task is approved by this roadmap update.
 
 **The objective is not to write more code. It is to make adding the next hundred abilities easier than adding the first hundred.**

@@ -1,14 +1,15 @@
 # Testing
 
-This is how Warcraft Survivors is tested natively on Windows 11 x64, what each layer proves, the
-exact commands that reproduce a result, and what is still open. Every number in this file comes
-from a run recorded in the repository's history or in `target\smoke\` (not committed).
+This document records the Phase 1 native Windows 11 x64 testing baseline for Azeroth Survivors:
+what each layer proves, the commands used, and the open items recorded at that time. Results
+below are historical, not claims that the same tests have been rerun on the current Phase 2 HEAD.
+Every recorded number comes from the repository history or `target\smoke\` (not committed).
 
 ## 1. Layers
 
 | # | Layer | Where | Needs WoW data | What it proves |
 |---|---|---|---|---|
-| 1 | Rule unit tests | `crates/benilla-app/src/survivors/tests.rs`, and in-file `mod tests` in `abilities.rs`, `cards.rs` | No | Damage, cooldowns, stats and passives, rarity, offers, slot limits, schedules, scaling, XP, outcome, targeting, dice |
+| 1 | Rule unit tests | `crates/benilla-app/src/survivors/tests/` (split into modules after Phase 1), and in-file `mod tests` in `abilities.rs`, `cards.rs` | No | Damage, cooldowns, stats and passives, rarity, offers, slot limits, schedules, scaling, XP, outcome, targeting, dice |
 | 2 | Launch check tests | `survivors/install.rs` | No | The start check names the folders it searched, and names missing files |
 | 3 | Headless simulation | `survivors/sim.rs` (test-only) | No | A whole 900-second run on the game's schedule: bosses, cards, pause, waves, slots, victory, defeat, determinism |
 | 4 | Source guards | `ui_script/verb_event_gate.rs`, `ui_session.rs`, `pipe_warm/menagerie.rs` | No | Upstream invariants about event wiring and warm-up coverage |
@@ -128,7 +129,7 @@ change will exercise it.
 ## 5. Acceptance criteria and results
 
 The phase is complete when each row below passes on a clean checkout, with the commands above.
-Results are from this session's runs (commit `1f1cbbb` and later), not assumed.
+Results are from the original Phase 1 verification runs (commit `1f1cbbb` and later), not assumed to describe the current Phase 2 checkout.
 
 | Criterion | Command | Result |
 |---|---|---|
@@ -137,7 +138,7 @@ Results are from this session's runs (commit `1f1cbbb` and later), not assumed.
 | Headless simulation passes | `survivors::sim::scenarios` | **Passed**, 4 tests, about 2 s |
 | Full relevant library tests pass, or an upstream failure is documented | `cargo test -p benilla-app --lib` | **Passed** 4,293 of 4,294; **1 failed**, documented in section 6 |
 | Clippy passes for the Windows targets | `cargo clippy --workspace --all-targets -- -D warnings` | **Passed** (exit 0) |
-| GitHub Actions Windows CI passes | `survivors-windows.yml` | **Not run**: the branch has not been pushed, so CI has not run on GitHub |
+| GitHub Actions Windows CI passes | `survivors-windows.yml` | **Not run at the time of this local report**: the branch had not yet been pushed. Phase 1 was subsequently merged; consult the relevant GitHub Actions runs for CI evidence. |
 | Native gameplay smoke test confirms death and victory | `smoke-survivors.ps1`, run `20261017-165007` | **Passed**: 17 of 17 automated checks. Death and victory are logged and the victory results screen was viewed. The user reports a manual death and end-of-run screen. Visual review of the other screens is open. |
 | Performance baseline recorded | the perf leg, run `20261017-165007` | **Recorded**, section 4 |
 | Security and development docs current | `docs/` | Updated for this phase |
@@ -172,6 +173,15 @@ A second smoke run (`20261017-170621`) was started to correct the report's wordi
 partway through the death leg, before its report was written. It is not used for any figure here.
 Its contents are left in `target\smoke\` and are not committed.
 
+### Later Phase 2 verification (separate from the Phase 1 baseline)
+
+After P2-001 introduced explicit targeting metadata (commit `0ad5a48`), the recorded
+`cargo test -p benilla-app --lib targeting_` run passed **7 tests**, with **0 failed** and
+**4,299 filtered out**. This was a targeted test run, **not** a full-library rerun.
+Subsequent commits `447bdfd`, `c87cd7c`, `755acb2`, and `c19ef97` split the Survivors
+tests into modules. Verify current test paths and run validation on the actual checkout
+before treating the historical results above as current.
+
 ## 6. Known open items
 
 - **`SweepUiMaterial` has no warm-up contributor.** One test in the full library run fails for
@@ -205,6 +215,6 @@ Its contents are left in `target\smoke\` and are not committed.
   3. Record the game's adapter in the report (WMI lists both the iGPU and the discrete GPU).
   4. Decide whether levels should have a ceiling. The harness shows levels in the 150s; the code
      has no cap. Only a `spend_xp` guard against non-finite experience exists.
-  5. Push the branch and check `survivors-windows.yml` on GitHub.
+  5. Historical follow-up: push the Phase 1 branch and check `survivors-windows.yml` on GitHub (Phase 1 was subsequently merged).
   6. Run the Linux `ci.yml` on a fork PR, and the wasm build (`scripts/web-setup.sh`) on a machine
      with bash.

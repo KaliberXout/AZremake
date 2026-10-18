@@ -1,8 +1,14 @@
 # Content architecture proposal (proposal only, not implemented in Phase 1)
 
-Status: proposal. Phase 1 does not implement any of this. It records how content is represented
-today, what a data-driven design needs, which format to use, and how to migrate without a
-rewrite. Every statement about the current code was checked against the source.
+Status: historical Phase 1 proposal; not an approved Phase 2 implementation plan. This document
+records the original source audit and design options as they stood during Phase 1. Statements
+about the then-current code were checked at the time, but may no longer describe HEAD.
+
+**Current guidance:** See `docs/architecture/content-system.md`, `docs/roadmap.md`, and
+`docs/tasks/next.md` for the current Phase 2 direction and authorised next steps. P2-001
+(explicit ability targeting) was implemented in commit `0ad5a48` using Rust metadata; it did
+not introduce RON/TOML loading or the composable selector/effect model proposed below.
+External storage formats and a larger migration remain undecided.
 
 ## 1. How content is represented today
 
@@ -176,7 +182,8 @@ not a behaviour change. For example `Bolt` is `Nearest(count) + Projectile(speed
   ability that is in its own pool; every map has six bosses; roster ladders are non-decreasing
   (the property `ladder_rosters_never_soften_as_they_rise` already tests).
 - Phase 1 already has the first of these as Rust unit tests (`data` invariants in
-  `survivors/tests.rs`). They become the validation suite once the data is external.
+  `survivors/tests.rs` at the time; Survivors tests have since been split into
+  `survivors/tests/`). These tests could inform future validation if external data is adopted.
 
 ### 4.12 Automated content tests
 
@@ -186,7 +193,9 @@ not a behaviour change. For example `Bolt` is `Nearest(count) + Projectile(speed
 
 ## 5. Migration plan (incremental)
 
-Each step keeps the game playable and the existing tests green. None is started in Phase 1.
+The following is the original proposed sequence, not a currently approved task list. None
+was started in Phase 1; P2-001 later took a smaller Rust-metadata-first approach. Any further
+migration requires fresh review against the current source and Phase 2 plan.
 
 1. **Freeze the baseline.** Phase 1 tests cover the rules that the migration must keep. Add
    golden offers and damage numbers for one class before anything moves.
@@ -220,7 +229,11 @@ Rules for the migration:
 - Whether RON or TOML wins for abilities. The recommendation above is a starting point to test in
   step 2, before the larger migration.
 
-## 7. Phase 2 priorities that this proposal supports
+## 7. Original proposed Phase 2 priorities (historical)
+
+These priorities were drafted before the Phase 1 baseline was completed and before P2-001.
+The Windows smoke baseline subsequently passed its 17 automated checks; manual visual checks
+remain open. Do not treat the following list as current work authorisation.
 
 1. Finish the Windows build and smoke baseline (see `docs/survivors-smoke-test.md`).
 2. Move tuning to TOML with the loader and `ContentReport` (migration step 2).

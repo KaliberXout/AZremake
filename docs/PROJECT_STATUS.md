@@ -2,7 +2,7 @@
 
 **Current phase:** Phase 2 — Data-Driven Content System  
 **Phase 1:** Complete and merged into `main`  
-**Last updated:** 2026-10-17
+**Last updated:** 2026-10-18
 
 ## 1. Project Overview
 
@@ -133,19 +133,15 @@ Known relevant files include:
 - `data.rs` — gameplay data and related definitions.
 - `hero.rs` — hero-related gameplay behaviour.
 - `hud.rs` — player interface and level-up choices.
-- `tests.rs` — Survivors-specific automated tests.
+- `tests/` — Survivors-specific automated tests (inspect the current module layout).
 
 This is a starting map, not an exhaustive architectural inventory. Check the current source before making assumptions about exact ownership or module responsibilities.
 
 ### Known architectural limitation
 
-Some ability behaviour is selected using hardcoded spell identifiers.
+P2-001 replaced the spell-name-specific targeting check with explicit ability metadata (commit `0ad5a48`). `AbilityDef` carries `Targeting::Nearest` or `Targeting::Toughest`; Pyroblast, Aimed Shot, Exorcism, and Starfire use `Toughest`, while the default is `Nearest`.
 
-For example, the casting implementation has special targeting behaviour for particular abilities such as Pyroblast, Aimed Shot, Exorcism, and Starfire.
-
-This is a candidate for replacement with explicit ability data, such as a targeting strategy.
-
-Do not assume that all existing hardcoded logic should be removed at once.
+Other hardcoded gameplay rules remain candidates for incremental review. Do not assume they should all be removed at once.
 
 ## 5. Phase 2 — Current Focus
 
@@ -168,9 +164,9 @@ Do not begin with a large rewrite of `abilities.rs` or the entire Survivors modu
 
 Preserve existing gameplay behaviour unless a change is explicitly intentional.
 
-The first implementation candidate is replacing spell-name-specific targeting checks with an explicit targeting property in ability definitions.
+The first implementation milestone, P2-001, is complete and committed as `0ad5a48`. Subsequent commits `447bdfd`, `c87cd7c`, `755acb2`, and `c19ef97` split Survivors tests into modules. These changes do not complete the wider data-driven content architecture.
 
-This candidate must be reviewed against the actual source before implementation.
+Review the current source and agree on the next small milestone before authorising implementation.
 
 See:
 
@@ -180,45 +176,13 @@ See:
 
 ## 6. AI-Assisted Development
 
-### Local development assistant
+### Current coding-agent approach
 
-Continue (VS Code extension), connected to Ollama.
+Codex is the intended tool for future reviewed implementation tasks. Earlier local experiments used Continue/Ollama and Kilo Code; do not infer successful implementation or test verification from an agent's completion message.
 
-Primary local model:
+Before assigning work, inspect the current Git status and the relevant source and tests. Preserve existing changes and regression tests; the previously planned test modularisation is already committed. Follow `AGENTS.md` for mandatory editing safeguards.
 
-- Qwen3 14B.
-- Running locally on an AMD Radeon RX 9070 XT through ROCm.
-- Approximately 32K configured context for coding tasks.
-
-The local assistant has successfully performed an initial read-only analysis of the ability dispatch code.
-
-Its implementation reliability has not yet been established.
-
-### Task allocation
-
-**Local AI / Continue**
-
-- Small, well-defined code changes.
-- Focused tests.
-- Single-module improvements.
-- Read-only source analysis.
-- Routine maintenance.
-
-**Cloud Codex**
-
-- More difficult Rust and Bevy problems.
-- Complex cross-module changes.
-- Architectural work requiring substantial repository context.
-
-**Human review**
-
-- Architectural decisions.
-- Scope control.
-- Code review.
-- Test verification.
-- Gameplay and design decisions.
-
-AI-generated changes must be reviewed and tested before being accepted.
+The coding agent handles narrowly scoped, approved changes and reports exact verification results. The human developer approves architecture, reviews diffs, and controls staging, commits, and merges.
 
 ## 7. Development Rules
 
@@ -235,11 +199,9 @@ AI-generated changes must be reviewed and tested before being accepted.
 
 ## 8. Immediate Next Steps
 
-1. Finalise the Phase 2 roadmap.
-2. Document the proposed content-system architecture.
-3. Define the first small implementation task.
-4. Use Continue/Qwen3 to attempt that task.
-5. Review the code changes and run targeted tests.
-6. Commit only after verification.
+1. Finish the Phase 2 documentation consistency audit while preserving existing source and uncommitted work.
+2. Treat P2-001 as implemented and committed (`0ad5a48`), with seven targeted tests previously reported as passed. The broader test suite and native lint were not rerun for that change; confirm current Git status before new work.
+3. Treat the Survivors test extraction as completed through `c19ef97`; inspect the current test modules before proposing any further restructuring.
+4. Agree on the next small coding task, review its source before assignment, and verify its results before approving any commit.
 
 **Current priority:** Establish a maintainable data-driven content foundation before significantly expanding the number of playable abilities, classes, or progression systems.
