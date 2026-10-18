@@ -32,37 +32,6 @@ pub(crate) struct Roster {
     pub bosses: Vec<EnemyDef>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn targeting_toughest_abilities() {
-        // Regression test for P2-001: verify these abilities use Toughest targeting
-        let pyroblast = ability("pyroblast");
-        assert_eq!(pyroblast.targeting, Targeting::Toughest);
-
-        let aimed_shot = ability("aimed_shot");
-        assert_eq!(aimed_shot.targeting, Targeting::Toughest);
-
-        let exorcism = ability("exorcism");
-        assert_eq!(exorcism.targeting, Targeting::Toughest);
-
-        let starfire = ability("starfire");
-        assert_eq!(starfire.targeting, Targeting::Toughest);
-    }
-
-    #[test]
-    fn targeting_defaults_to_nearest() {
-        // Regression test for P2-001: verify that ordinary abilities default to Nearest targeting
-        let mortal_strike = ability("mortal_strike");
-        assert_eq!(mortal_strike.targeting, Targeting::Nearest);
-
-        let sinister_strike = ability("sinister_strike");
-        assert_eq!(sinister_strike.targeting, Targeting::Nearest);
-    }
-}
-
 static ROSTERS: std::sync::LazyLock<Vec<Roster>> = std::sync::LazyLock::new(|| {
     MAPS.iter()
         .map(|m| {
@@ -125,4 +94,35 @@ fn ladder(foes: &[Foe], tuned: &[EnemyDef]) -> Vec<EnemyDef> {
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn targeting_toughest_abilities() {
+        // Regression test for P2-001: verify these abilities use Toughest targeting
+        let pyroblast = ability("pyroblast");
+        assert_eq!(pyroblast.targeting, Targeting::Toughest);
+
+        let aimed_shot = ability("aimed_shot");
+        assert_eq!(aimed_shot.targeting, Targeting::Toughest);
+
+        let exorcism = ability("exorcism");
+        assert_eq!(exorcism.targeting, Targeting::Toughest);
+
+        let starfire = ability("starfire");
+        assert_eq!(starfire.targeting, Targeting::Toughest);
+    }
+
+    #[test]
+    fn targeting_defaults_to_nearest() {
+        // Regression test for P2-001: verify that ordinary abilities default to Nearest targeting
+        let mortal_strike = ability("mortal_strike");
+        assert_eq!(mortal_strike.targeting, Targeting::Nearest);
+
+        let sinister_strike = ability("sinister_strike");
+        assert_eq!(sinister_strike.targeting, Targeting::Nearest);
+    }
 }
