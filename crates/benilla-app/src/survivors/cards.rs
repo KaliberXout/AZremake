@@ -7,6 +7,7 @@ use bevy::prelude::*;
 use bevy::ui::RelativeCursorPosition;
 
 use super::data::{self, Kind};
+use super::descriptions;
 use super::hud::{self, HudFont, SpellIcon};
 use super::level_up::{self, Choice, Offer};
 use super::{Phase, Rng, Run};
@@ -183,7 +184,7 @@ pub(super) fn deal_cards(
     let f = &font.0;
     commands.entity(row).with_children(|row| {
         for (i, &choice) in offer.choices().iter().enumerate() {
-            let card = hud::describe_card(choice, &run, spells.as_deref());
+            let card = descriptions::describe_card(choice, &run, spells.as_deref());
             let rarity = rarity(choice, &run);
             let rc = rarity.color();
             row.spawn((

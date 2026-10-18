@@ -8,6 +8,7 @@ mod abilities;
 mod auto;
 mod cards;
 mod data;
+mod descriptions;
 mod enemies;
 mod grade;
 mod hero;
