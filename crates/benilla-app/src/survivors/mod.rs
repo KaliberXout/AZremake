@@ -19,6 +19,7 @@ mod menu;
 mod minimap;
 mod mobility;
 mod run_lifecycle;
+mod ui_art;
 mod units;
 
 #[cfg(test)]
@@ -101,7 +102,7 @@ impl Plugin for SurvivorsPlugin {
                 Update,
                 (
                     hud::apply_ui_scale,
-                    hud::fill_art,
+                    ui_art::fill_art,
                     hud::xp_hover,
                     hud::icon_tooltip,
                     hud::hero_plate,

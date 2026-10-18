@@ -21,7 +21,7 @@ use benilla_world::world_point::WorldPoint;
 
 use super::enemies::Enemy;
 use super::hero::Hero;
-use super::hud::UiArt;
+use super::ui_art::UiArt;
 use super::Run;
 use crate::area::AreaTableRes;
 
