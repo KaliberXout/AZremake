@@ -73,6 +73,12 @@ pub(crate) enum Effect {
     Execute(f32),
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum Targeting {
+    Nearest,
+    Toughest,
+}
+
 pub(crate) struct AbilityDef {
     pub key: &'static str,
     pub spell: u32,
@@ -95,6 +101,8 @@ pub(crate) struct AbilityDef {
     /// The area's own visual hangs overhead and would hide the field from the camera, so the
     /// area plays the spell's impact on whatever it hits instead.
     pub overhead: bool,
+    /// How the ability selects its targets.
+    pub targeting: Targeting,
 }
 
 const fn ab(key: &'static str, spell: u32, kind: Kind) -> AbilityDef {
@@ -113,6 +121,7 @@ const fn ab(key: &'static str, spell: u32, kind: Kind) -> AbilityDef {
         mark: 0,
         totem: (0, 0),
         overhead: false,
+        targeting: Targeting::Nearest,
     }
 }
 
@@ -236,7 +245,8 @@ pub(crate) static ABILITIES: &[AbilityDef] = &[
             dot: 6.0,
             duration: 6.0,
             cooldown: 6.0,
-            range: 30.0
+            range: 30.0,
+            targeting: Targeting::Toughest
         }
     ),
     // --- Warrior ---
@@ -626,7 +636,8 @@ pub(crate) static ABILITIES: &[AbilityDef] = &[
         Bolt {
             damage: 48.0,
             cooldown: 4.0,
-            range: 32.0
+            range: 32.0,
+            targeting: Targeting::Toughest
         }
     ),
     // --- Shaman ---
@@ -747,7 +758,8 @@ pub(crate) static ABILITIES: &[AbilityDef] = &[
         Strike {
             damage: 36.0,
             cooldown: 5.0,
-            range: 22.0
+            range: 22.0,
+            targeting: Targeting::Toughest
         }
     ),
     ability!(
@@ -817,7 +829,8 @@ pub(crate) static ABILITIES: &[AbilityDef] = &[
         Strike {
             damage: 40.0,
             cooldown: 4.0,
-            range: 24.0
+            range: 24.0,
+            targeting: Targeting::Toughest
         }
     ),
     ability!(
@@ -1975,6 +1988,37 @@ pub(crate) static MAPS: &[MapDef] = &[
 pub(crate) struct Roster {
     pub enemies: Vec<EnemyDef>,
     pub bosses: Vec<EnemyDef>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn targeting_toughest_abilities() {
+        // Regression test for P2-001: verify these abilities use Toughest targeting
+        let pyroblast = ability("pyroblast");
+        assert_eq!(pyroblast.targeting, Targeting::Toughest);
+
+        let aimed_shot = ability("aimed_shot");
+        assert_eq!(aimed_shot.targeting, Targeting::Toughest);
+
+        let exorcism = ability("exorcism");
+        assert_eq!(exorcism.targeting, Targeting::Toughest);
+
+        let starfire = ability("starfire");
+        assert_eq!(starfire.targeting, Targeting::Toughest);
+    }
+
+    #[test]
+    fn targeting_defaults_to_nearest() {
+        // Regression test for P2-001: verify that ordinary abilities default to Nearest targeting
+        let mortal_strike = ability("mortal_strike");
+        assert_eq!(mortal_strike.targeting, Targeting::Nearest);
+
+        let sinister_strike = ability("sinister_strike");
+        assert_eq!(sinister_strike.targeting, Targeting::Nearest);
+    }
 }
 
 static ROSTERS: std::sync::LazyLock<Vec<Roster>> = std::sync::LazyLock::new(|| {

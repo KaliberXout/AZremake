@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 
-use super::data::{AbilityDef, Effect, Kind};
+use super::data::{AbilityDef, Effect, Kind, Targeting};
 use super::enemies::{self, Enemy, Loot};
 use super::hero::{self, Hero};
 use super::units::{self, flat, Fx, Marks, UnitSpec, COLOR_HEAL, COLOR_MELEE, COLOR_SPELL};
@@ -265,10 +265,7 @@ pub(super) fn cast_abilities(
                 } else {
                     def.range
                 };
-                let targets = if matches!(
-                    def.key,
-                    "pyroblast" | "aimed_shot" | "exorcism" | "starfire"
-                ) {
+                let targets = if matches!(def.targeting, Targeting::Toughest) {
                     toughest(&foes, reach, p.count)
                 } else {
                     nearest(&foes, reach, p.count)
@@ -937,4 +934,6 @@ mod tests {
             assert_eq!(roll(&mut rng, 0.0, 10.0), (10.0, false));
         }
     }
+
+
 }
