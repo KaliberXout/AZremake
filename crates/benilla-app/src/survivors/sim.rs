@@ -1,7 +1,7 @@
 //! Headless simulation of a whole run on a fixed clock.
 //!
 //! The harness runs the mode's own schedule ([`super::add_run_loop`]), the same run start
-//! ([`super::hud::start_run`]), hero spawn ([`super::hero::spawn_hero`]), level-up offers
+//! ([`super::run_lifecycle::start_run`]), hero spawn ([`super::hero::spawn_hero`]), level-up offers
 //! ([`super::level_up::roll_offer`]) and card picks ([`super::level_up::pick`]) that the game runs. There is
 //! no window, renderer, WoW data or network. The clock steps a fixed amount per frame and the
 //! dice are seeded, so a run is repeatable frame for frame.
@@ -23,8 +23,8 @@ use benilla_world::model_fade::DespawnFade;
 use super::data;
 use super::enemies::{Dying, Enemy};
 use super::hero;
-use super::hud;
 use super::level_up::{self, Offer};
+use super::run_lifecycle;
 use super::{Phase, Rng, Run, Selection};
 use crate::combat_text::CombatTextSpawn;
 use crate::creature_anim::{CastEvent, PlaySeq, SpellGoTargets, SwingMessage};
@@ -197,7 +197,7 @@ impl Sim {
         selection.look = Some(0);
         selection.map = map;
         assert!(
-            hud::start_run(&mut run, &mut selection),
+            run_lifecycle::start_run(&mut run, &mut selection),
             "a run starts from a picked class and look"
         );
         let (display, race, sex) = selection.looks[0];

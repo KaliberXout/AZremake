@@ -878,32 +878,6 @@ pub(super) fn menu_preview(
     );
 }
 
-pub(super) fn start_run(run: &mut Run, selection: &mut Selection) -> bool {
-    let (Some(class), Some(&(_, race, _))) = (
-        selection.class_def(),
-        selection.look.and_then(|i| selection.looks.get(i)),
-    ) else {
-        return false;
-    };
-    // The world goes to the battleground picked; until now it stood in the last one.
-    selection.stage = selection.map;
-    let next_guid = run.next_guid;
-    *run = Run {
-        class,
-        race,
-        next_guid,
-        ..Run::default()
-    };
-    run.abilities.push(Owned {
-        def: data::ability(class.start),
-        level: 1,
-        cd: 0.5,
-    });
-    run.hp = run.stats().max_hp;
-    run.version += 1;
-    true
-}
-
 pub(super) fn looks_for(
     class: &data::ClassDef,
     creatures: &crate::entities::Creatures,
@@ -958,7 +932,9 @@ pub(super) fn keys(
 ) {
     match phase.get() {
         Phase::Menu => {
-            if keys.just_pressed(KeyCode::Enter) && start_run(&mut run, &mut selection) {
+            if keys.just_pressed(KeyCode::Enter)
+                && super::run_lifecycle::start_run(&mut run, &mut selection)
+            {
                 next.set(Phase::Playing);
             }
         }

@@ -18,6 +18,7 @@ mod level_up;
 mod menu;
 mod minimap;
 mod mobility;
+mod run_lifecycle;
 mod units;
 
 #[cfg(test)]
@@ -112,7 +113,7 @@ impl Plugin for SurvivorsPlugin {
                     .after(hud::show_panels),
             )
             .add_systems(OnEnter(Phase::Paused), pause)
-            .add_systems(OnEnter(Phase::Menu), (unpause, reset_run));
+            .add_systems(OnEnter(Phase::Menu), (unpause, run_lifecycle::reset_run));
         add_run_loop(app);
         if let Some(auto) = auto::from_env() {
             app.insert_resource(auto)
@@ -417,28 +418,4 @@ fn add_run_loop(app: &mut App) {
         .add_systems(OnEnter(Phase::Playing), unpause)
         .add_systems(OnEnter(Phase::LevelUp), (pause, level_up::roll_offer))
         .add_systems(OnEnter(Phase::GameOver), unpause);
-}
-
-/// Back at the menu: everything the last run spawned goes, and the run starts over.
-fn reset_run(
-    mut commands: Commands,
-    spawned: Query<Entity, With<RunEntity>>,
-    mut run: ResMut<Run>,
-    mut pending: ResMut<abilities::PendingHits>,
-    mut spawner: ResMut<enemies::Spawner>,
-    mut selection: ResMut<Selection>,
-) {
-    for e in &spawned {
-        commands.entity(e).despawn();
-    }
-    // Guids stay unique across runs: caches keyed by guid may outlive a despawn by a frame.
-    let next_guid = run.next_guid;
-    *run = Run {
-        next_guid,
-        ..Run::default()
-    };
-    pending.0.clear();
-    *spawner = enemies::Spawner::default();
-    // The preview hero is respawned for the look still picked.
-    selection.version += 1;
 }

@@ -10,8 +10,8 @@ use bevy::render::view::screenshot::{save_to_disk, Screenshot};
 
 use super::enemies::{Enemy, Gem};
 use super::hero::Hero;
-use super::hud;
 use super::level_up::{self, Offer};
+use super::run_lifecycle;
 use super::units::flat;
 use super::{data, Phase, Rng, Run, Selection};
 
@@ -180,7 +180,7 @@ pub(super) fn drive(
                 auto.wait = 0.0;
             } else if auto.wait > 2.0 && auto.wait < 3.0 {
                 auto.capture_once(&mut commands, "menu".into());
-            } else if auto.wait > 3.0 && hud::start_run(&mut run, &mut selection) {
+            } else if auto.wait > 3.0 && run_lifecycle::start_run(&mut run, &mut selection) {
                 info!(
                     "survivors auto: run begins as {} at {}",
                     run.class.name,
