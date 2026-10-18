@@ -20,6 +20,7 @@ mod menu;
 mod minimap;
 mod mobility;
 mod run_lifecycle;
+mod tooltips;
 mod ui_art;
 mod units;
 
@@ -105,7 +106,7 @@ impl Plugin for SurvivorsPlugin {
                     hud::apply_ui_scale,
                     ui_art::fill_art,
                     hud::xp_hover,
-                    hud::icon_tooltip,
+                    tooltips::icon_tooltip,
                     hud::hero_plate,
                     minimap::map_buttons,
                     minimap::zone_text,
