@@ -2,7 +2,7 @@
 //!
 //! The harness runs the mode's own schedule ([`super::add_run_loop`]), the same run start
 //! ([`super::hud::start_run`]), hero spawn ([`super::hero::spawn_hero`]), level-up offers
-//! ([`super::hud::roll_offer`]) and card picks ([`super::hud::pick`]) that the game runs. There is
+//! ([`super::level_up::roll_offer`]) and card picks ([`super::level_up::pick`]) that the game runs. There is
 //! no window, renderer, WoW data or network. The clock steps a fixed amount per frame and the
 //! dice are seeded, so a run is repeatable frame for frame.
 //!
@@ -23,7 +23,8 @@ use benilla_world::model_fade::DespawnFade;
 use super::data;
 use super::enemies::{Dying, Enemy};
 use super::hero;
-use super::hud::{self, Offer};
+use super::hud;
+use super::level_up::{self, Offer};
 use super::{Phase, Rng, Run, Selection};
 use crate::combat_text::CombatTextSpawn;
 use crate::creature_anim::{CastEvent, PlaySeq, SpellGoTargets, SwingMessage};
@@ -96,7 +97,7 @@ fn choose_card(
         return;
     }
     let i = rng.index(n);
-    hud::pick(i, &mut run, &mut offer, &mut rng, &mut next);
+    level_up::pick(i, &mut run, &mut offer, &mut rng, &mut next);
     picks.0 += 1;
 }
 

@@ -5,7 +5,8 @@ use bevy::prelude::*;
 
 use super::data;
 use super::hero::{self, Outcome};
-use super::hud::{self, Choice, Offer};
+use super::hud;
+use super::level_up::{self, Choice, Offer};
 use super::{Owned, Phase, Rng, Run, BASE_HP, BASE_MAGNET, BASE_SPEED};
 
 const CASTER: u8 = 8; // Mage
@@ -377,7 +378,7 @@ fn full_ability_slots() -> Vec<Owned> {
 fn a_fresh_run_is_offered_three_distinct_choices() {
     let run = run_for(CASTER);
     for seed in 1..200 {
-        let offer = hud::choices_for(&run, &mut Rng::seeded(seed));
+        let offer = level_up::choices_for(&run, &mut Rng::seeded(seed));
         assert_eq!(offer.len(), 3, "seed {seed}");
         let mut labels: Vec<String> = offer.iter().map(label).collect();
         labels.sort();
@@ -391,7 +392,7 @@ fn an_offer_never_teaches_a_spell_the_run_already_has() {
     let mut run = run_for(CASTER);
     run.abilities.push(owned(start_of(CASTER), 1));
     for seed in 1..300 {
-        for c in hud::choices_for(&run, &mut Rng::seeded(seed)) {
+        for c in level_up::choices_for(&run, &mut Rng::seeded(seed)) {
             if let Choice::NewAbility(def) = c {
                 assert_ne!(def.key, start_of(CASTER), "seed {seed}");
             }
@@ -404,7 +405,7 @@ fn full_ability_slots_offer_no_new_spells() {
     let mut run = run_for(CASTER);
     run.abilities = full_ability_slots();
     for seed in 1..300 {
-        for c in hud::choices_for(&run, &mut Rng::seeded(seed)) {
+        for c in level_up::choices_for(&run, &mut Rng::seeded(seed)) {
             assert!(!matches!(c, Choice::NewAbility(_)), "seed {seed}");
         }
     }
@@ -419,7 +420,7 @@ fn full_passive_slots_offer_no_new_passives() {
         .map(|p| (p, 1))
         .collect();
     for seed in 1..300 {
-        for c in hud::choices_for(&run, &mut Rng::seeded(seed)) {
+        for c in level_up::choices_for(&run, &mut Rng::seeded(seed)) {
             assert!(!matches!(c, Choice::NewPassive(_)), "seed {seed}");
         }
     }
@@ -430,7 +431,7 @@ fn a_maxed_spell_is_never_offered_an_upgrade() {
     let mut run = run_for(CASTER);
     run.abilities = vec![owned(start_of(CASTER), data::MAX_ABILITY_LEVEL)];
     for seed in 1..200 {
-        for c in hud::choices_for(&run, &mut Rng::seeded(seed)) {
+        for c in level_up::choices_for(&run, &mut Rng::seeded(seed)) {
             assert!(!matches!(c, Choice::Upgrade(_)), "seed {seed}");
         }
     }
@@ -451,18 +452,18 @@ fn a_fully_ranked_run_is_offered_only_a_heal() {
         .take(data::MAX_PASSIVES)
         .map(|p| (p, data::MAX_PASSIVE_LEVEL))
         .collect();
-    let offer = hud::choices_for(&run, &mut Rng::seeded(3));
+    let offer = level_up::choices_for(&run, &mut Rng::seeded(3));
     assert_eq!(offer.iter().map(label).collect::<Vec<_>>(), ["heal"]);
 }
 
 #[test]
 fn the_same_seed_gives_the_same_offer() {
     let run = run_for(CASTER);
-    let a: Vec<String> = hud::choices_for(&run, &mut Rng::seeded(11))
+    let a: Vec<String> = level_up::choices_for(&run, &mut Rng::seeded(11))
         .iter()
         .map(label)
         .collect();
-    let b: Vec<String> = hud::choices_for(&run, &mut Rng::seeded(11))
+    let b: Vec<String> = level_up::choices_for(&run, &mut Rng::seeded(11))
         .iter()
         .map(label)
         .collect();
@@ -479,7 +480,7 @@ fn picking_a_spell_adds_it_at_rank_one_and_resumes_play() {
         choices: vec![Choice::NewAbility(data::ability(start_of(CASTER)))],
     };
     let mut next = NextState::<Phase>::default();
-    hud::pick(0, &mut run, &mut offer, &mut Rng::seeded(1), &mut next);
+    level_up::pick(0, &mut run, &mut offer, &mut Rng::seeded(1), &mut next);
 
     assert_eq!(run.abilities.len(), 1);
     assert_eq!(run.abilities[0].level, 1);
@@ -499,7 +500,7 @@ fn picking_while_more_levels_are_owed_redraws_the_offer() {
         choices: vec![Choice::Upgrade(0)],
     };
     let mut next = NextState::<Phase>::default();
-    hud::pick(0, &mut run, &mut offer, &mut Rng::seeded(1), &mut next);
+    level_up::pick(0, &mut run, &mut offer, &mut Rng::seeded(1), &mut next);
 
     assert_eq!(run.abilities[0].level, 2);
     assert_eq!(run.pending_levels, 1);
@@ -517,7 +518,7 @@ fn an_out_of_range_pick_changes_nothing() {
         choices: vec![Choice::Heal],
     };
     let mut next = NextState::<Phase>::default();
-    hud::pick(4, &mut run, &mut offer, &mut Rng::seeded(1), &mut next);
+    level_up::pick(4, &mut run, &mut offer, &mut Rng::seeded(1), &mut next);
 
     assert_eq!(run.pending_levels, 1);
     assert_eq!(offer.choices().len(), 1);
@@ -535,6 +536,6 @@ fn heal_restores_health_to_the_maximum() {
         choices: vec![Choice::Heal],
     };
     let mut next = NextState::<Phase>::default();
-    hud::pick(0, &mut run, &mut offer, &mut Rng::seeded(1), &mut next);
+    level_up::pick(0, &mut run, &mut offer, &mut Rng::seeded(1), &mut next);
     assert!(close(run.hp, run.stats().max_hp));
 }

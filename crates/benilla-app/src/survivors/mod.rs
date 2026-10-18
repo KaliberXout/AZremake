@@ -14,6 +14,7 @@ mod hero;
 mod hud;
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod install;
+mod level_up;
 mod menu;
 mod minimap;
 mod mobility;
@@ -54,7 +55,7 @@ impl Plugin for SurvivorsPlugin {
             .init_resource::<hero::AimPoint>()
             .init_resource::<abilities::PendingHits>()
             .init_resource::<enemies::Spawner>()
-            .init_resource::<hud::Offer>()
+            .init_resource::<level_up::Offer>()
             .init_resource::<cards::PendingPick>()
             .add_plugins(bevy::ui_render::UiMaterialPlugin::<hud::SweepUiMaterial>::default())
             .add_systems(Startup, hud::setup_hud)
@@ -414,7 +415,7 @@ fn add_run_loop(app: &mut App) {
             (enemies::reap_dead, enemies::still_gems).after(WorldStage::Input),
         )
         .add_systems(OnEnter(Phase::Playing), unpause)
-        .add_systems(OnEnter(Phase::LevelUp), (pause, hud::roll_offer))
+        .add_systems(OnEnter(Phase::LevelUp), (pause, level_up::roll_offer))
         .add_systems(OnEnter(Phase::GameOver), unpause);
 }
 

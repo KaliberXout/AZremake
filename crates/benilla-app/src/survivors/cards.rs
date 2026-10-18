@@ -7,7 +7,8 @@ use bevy::prelude::*;
 use bevy::ui::RelativeCursorPosition;
 
 use super::data::{self, Kind};
-use super::hud::{self, Choice, HudFont, Offer, SpellIcon};
+use super::hud::{self, HudFont, SpellIcon};
+use super::level_up::{self, Choice, Offer};
 use super::{Phase, Rng, Run};
 
 /// WoW's item-quality colours (`ITEM_QUALITY_COLORS`).
@@ -499,7 +500,7 @@ pub(super) fn animate_cards(
         if *t >= PICK_SECS {
             let i = *i;
             pending.0 = None;
-            hud::pick(i, &mut run, &mut offer, &mut rng, &mut next);
+            level_up::pick(i, &mut run, &mut offer, &mut rng, &mut next);
         }
     }
 }
@@ -535,7 +536,7 @@ pub(super) fn choose_card(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::survivors::hud::Choice;
+    use crate::survivors::level_up::Choice;
     use crate::survivors::Owned;
 
     fn run_for(id: u8) -> Run {
