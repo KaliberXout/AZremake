@@ -43,6 +43,8 @@ pub(super) struct WarmLanes<'w> {
     pub(super) images: ResMut<'w, Assets<Image>>,
     /// For the minimap interior composite's tile material, through its production builder.
     ui_quads: ResMut<'w, Assets<crate::ui_pass::UiQuadMaterial>>,
+    /// Present only when Survivors registers its UI material plugin.
+    sweep_ui: Option<ResMut<'w, Assets<crate::survivors::SweepUiMaterial>>>,
 }
 
 /// A portrait booth camera and its layer. Booths run `Msaa::Off`, so each model pipeline has a
@@ -559,6 +561,29 @@ pub(super) fn spawn_menagerie(
         WarmRig,
     ));
     count += 1;
+
+    // A real UI material node, extracted and rendered by Bevy's UI renderer under the same
+    // loading cover. It joins the paced WarmRig set and carries no interaction component.
+    if let Some(sweep_ui) = lanes.sweep_ui.as_deref_mut() {
+        commands.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                top: Val::Px(0.0),
+                width: Val::Px(2.0),
+                height: Val::Px(2.0),
+                ..default()
+            },
+            bevy::ui_render::ui_material::MaterialNode(
+                sweep_ui.add(crate::survivors::SweepUiMaterial { sweep: 0.5 }),
+            ),
+            bevy::picking::Pickable::IGNORE,
+            GlobalZIndex(0),
+            Visibility::Hidden,
+            WarmRig,
+        ));
+        count += 1;
+    }
 
     count
 }

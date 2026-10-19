@@ -24,6 +24,8 @@ mod tooltips;
 mod ui_art;
 mod units;
 
+pub(crate) use hud::SweepUiMaterial;
+
 #[cfg(test)]
 mod sim;
 #[cfg(test)]
