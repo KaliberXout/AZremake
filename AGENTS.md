@@ -125,7 +125,9 @@ google-chrome --user-data-dir=/tmp/wenilla-chrome --enable-unsafe-webgpu --remot
 - **Protected content.** Never commit WoW client files, MPQs, extracted assets, `WoW/`, `wow-data/`,
   `wow-addons-vanilla/`, `.probe-identity` (credentials), or `benilla-config/` (local state). All
   are gitignored. Never add a download that fetches the client. The user supplies it with
-  `WOW_DATA` or `-DataDir`.
+  `WOW_DATA` or `-DataDir`. On Windows, the launcher also reads `WOW_DATA` from the ignored
+  repository-root `.env.local` when the process environment variable is unset; `-DataDir` takes
+  precedence. Keep machine-specific paths in that file, never in tracked source.
 - **Local state.** Only `crates/benilla-app/src/local_state.rs` computes paths into
   `benilla-config/`. New persistent state goes through it.
 - **Dependencies.** Do not add a dependency without a reason in the commit message. Do not add a

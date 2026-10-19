@@ -97,6 +97,15 @@ function Resolve-WowData {
         $env:WOW_DATA = (Resolve-Path $DataDir).Path
     }
     if (-not $env:WOW_DATA) {
+        $localConfig = Join-Path $repo '.env.local'
+        if (Test-Path $localConfig -PathType Leaf) {
+            $setting = Get-Content -LiteralPath $localConfig | Where-Object { $_ -match '^\s*WOW_DATA\s*=' } | Select-Object -First 1
+            if ($setting) {
+                $env:WOW_DATA = ($setting -replace '^\s*WOW_DATA\s*=\s*', '').Trim().Trim('"').Trim("'")
+            }
+        }
+    }
+    if (-not $env:WOW_DATA) {
         Write-Warning 'WOW_DATA is not set and -DataDir was not given.'
         return $false
     }
