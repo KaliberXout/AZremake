@@ -55,3 +55,4 @@ __pycache__/
 
 # Machine-local development settings.
 /.env.local
+/target-linker-diagnostic/
