@@ -183,36 +183,101 @@ fn debugstack_frames_end_in_newline_and_count1_does_not_clamp() {
     assert_eq!(lines[1], "...", "the marker is its own complete line");
 }
 
-/// An addon chunk is named as the reference names it, `@Interface\AddOns\<folder>\<file>`:
-/// `FuBarPlugin-2.0.lua:752` finds its folder with a greedy `"\\AddOns\\(.*)\\"`, which captures
-/// up to the last backslash, so the file must be in the name.
+/// FuBarPlugin's OnInstanceInit searches the stack from level 6 down to 3 because its own
+/// library frames precede the addon callback frame. The addon's short path fits Lua's chunk id;
+/// a synthetic level-1 probe of a long chunk does not model this call stack.
 #[test]
 fn an_addon_chunk_is_named_the_way_the_client_names_it() {
     let name = crate::script::addon_chunk_name("FuBar_BagFu", "FuBar_BagFu.lua");
     assert_eq!(name, "@Interface\\AddOns\\FuBar_BagFu\\FuBar_BagFu.lua");
 
-    // FuBar's own pattern, against a traceback from a chunk loaded under that name.
+    // Keep FuBarPlugin and FuBar_BagFu in separate chunks, as they are in the actual load.
     let s = script();
     s.run_chunk_named(
-        b"function BenillaProbeFolder() return debugstack(1, 1, 0) end",
+        br#"
+          FuBarPlugin = {}
+          function FuBarPlugin:OnInstanceInit(target)
+            local folderName
+            local traces = {}
+            for i = 6, 3, -1 do
+              local trace = debugstack(i, 1, 0)
+              table.insert(traces, i .. ":" .. trace)
+            end
+            for i = 6, 3, -1 do
+              local _, _, found = string.find(debugstack(i, 1, 0), "\\AddOns\\(.*)\\")
+              folderName = found
+              if folderName then break end
+            end
+            target.folderName = folderName
+            return folderName, table.concat(traces, "\n")
+          end
+          function BenillaFuBarDispatch()
+            local folder, traces = FuBarPlugin:OnInstanceInit({})
+            return folder, traces
+          end
+          function BenillaFuBarRegisterCallback()
+            local folder, traces = BenillaFuBarDispatch()
+            return folder, traces
+          end
+        "#,
+        &crate::script::addon_chunk_name("FuBar", "FuBarPlugin-2.0.lua"),
+    )
+    .unwrap();
+    s.run_chunk_named(
+        b"function BenillaBagFuOnInstanceInit()\n\
+            local folder, traces = BenillaFuBarRegisterCallback()\n\
+            return folder, traces\n\
+          end\n\
+          function BenillaBagFuInit()\n\
+            local folder, traces = BenillaBagFuOnInstanceInit()\n\
+            return folder, traces\n\
+          end\n\
+          BenillaBagFuFolder, BenillaBagFuTrace = BenillaBagFuInit()",
         &name,
     )
     .unwrap();
-    let folder: String = s
-        .eval(
-            "local _, _, f = string.find(BenillaProbeFolder(), \"\\\\AddOns\\\\(.*)\\\\\") \
-             return f or '<no match>'",
-        )
-        .unwrap();
+    let folder: String = s.eval("return BenillaBagFuFolder").unwrap();
+    let trace: String = s.eval("return BenillaBagFuTrace").unwrap();
     assert_eq!(
         folder, "FuBar_BagFu",
-        "FuBarPlugin's own capture must yield the folder name"
+        "FuBarPlugin's stack walk must yield the caller addon's folder; traces: {trace}"
     );
 
     // A nested path in the manifest keeps its separators as backslashes.
     assert_eq!(
         crate::script::addon_chunk_name("Big", "libs/Thing/Thing.lua"),
         "@Interface\\AddOns\\Big\\libs\\Thing\\Thing.lua"
+    );
+}
+
+/// Lua's `luaO_chunkid` tail-truncates long `@` chunk names, even though the shorter addon file
+/// path used by FuBar's real level-6 caller remains intact.
+#[test]
+fn a_long_addon_chunk_source_uses_lua_compatible_tail_truncation() {
+    let s = script();
+    let long_name = crate::script::addon_chunk_name(
+        "FuBar_BagFu",
+        "Libs\\VeryLongDirectoryName\\FuBarPlugin.lua",
+    );
+    s.run_chunk_named(
+        b"function BenillaProbeTruncatedSource()\n\
+            local trace = debugstack(1, 1, 0)\n\
+            return trace\n\
+          end",
+        &long_name,
+    )
+    .unwrap();
+    let trace: String = s
+        .eval("return BenillaProbeTruncatedSource()")
+        .unwrap();
+    assert!(trace.starts_with("..."), "long @ names keep a tail: {trace:?}");
+    assert!(
+        !trace.contains("\\AddOns\\"),
+        "the truncated source drops the AddOns prefix: {trace:?}"
+    );
+    assert!(
+        trace.contains("\\FuBarPlugin.lua:"),
+        "the retained tail still ends in the source filename: {trace:?}"
     );
 }
 
