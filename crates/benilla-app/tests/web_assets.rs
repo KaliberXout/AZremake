@@ -24,6 +24,19 @@ fn read(rel: &str) -> String {
     std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading {}: {e}", path.display()))
 }
 
+/// The realm template lives in a separate repository; check it when that checkout is available.
+fn pages() -> Vec<&'static str> {
+    const REALM_PAGE: &str = "crates/wenilla-realm/templates/play.html";
+    let mut pages = vec!["web/index.html"];
+    let path = root().join(REALM_PAGE);
+    match path.try_exists() {
+        Ok(true) => pages.push(REALM_PAGE),
+        Ok(false) => {}
+        Err(e) => panic!("checking {}: {e}", path.display()),
+    }
+    pages
+}
+
 /// Every `./something.js` in a page: `import … from './x.js'`, `import('./x.js')`, and the
 /// import map's `"./wasi_stubs.js"`. One scan for all three — the quoting is what they share.
 fn referenced_scripts(page: &str) -> BTreeSet<String> {
@@ -52,7 +65,7 @@ fn every_page_script_that_lives_in_web_is_copied_into_dist() {
         .find(|l| l.trim_start().starts_with("cp web/"))
         .expect("web-build.sh still has the `cp web/…` line that populates web/dist");
 
-    for page in ["web/index.html", "crates/wenilla-realm/templates/play.html"] {
+    for page in pages() {
         for name in referenced_scripts(&read(page)) {
             // Not every import has a source file: wenilla.js is wasm-bindgen's output, written
             // straight into dist by the build itself.
@@ -72,7 +85,7 @@ fn every_page_script_that_lives_in_web_is_copied_into_dist() {
 fn the_pages_agree_on_the_platform_module() {
     // platform.js is best-effort by contract (see its header): a page must import it
     // dynamically, so a missing or broken module costs the button and never the boot.
-    for page in ["web/index.html", "crates/wenilla-realm/templates/play.html"] {
+    for page in pages() {
         let text = read(page);
         assert!(
             text.contains("import('./platform.js')"),
@@ -82,6 +95,10 @@ fn the_pages_agree_on_the_platform_module() {
         assert!(
             text.contains("id=\"fs\""),
             "{page} imports platform.js but has no #fs button for installFullscreenToggle"
+        );
+        assert!(
+            text.contains("installFullscreenToggle(document.getElementById('fs')"),
+            "{page} has a #fs button but does not wire it to installFullscreenToggle"
         );
     }
 }
