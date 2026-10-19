@@ -62,3 +62,14 @@ fn radius_and_duration_scale_with_rank_and_area() {
     assert!(close(owned(def.key, 1).radius(&stats), def.radius * 1.5));
     assert!(close(owned(def.key, 3).duration(), def.duration * 1.2));
 }
+
+#[test]
+fn a_maxed_spell_is_never_offered_an_upgrade() {
+    let mut run = run_for(CASTER);
+    run.abilities = vec![owned(start_of(CASTER), data::MAX_ABILITY_LEVEL)];
+    for seed in 1..200 {
+        for c in hud::choices_for(&run, &mut Rng::seeded(seed)) {
+            assert!(!matches!(c, Choice::Upgrade(_)), "seed {seed}");
+        }
+    }
+}
