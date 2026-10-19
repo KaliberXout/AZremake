@@ -15,8 +15,11 @@ use crate::net::Embodied;
 use benilla_assets::materials::WowModelMaterial;
 use benilla_world::interact::{WorldClick, WorldRightClick, WorldRightPress};
 use benilla_world::model_fade::{
-    self_model_fade_alpha, FadeMaterials, PendingAppearFade, RenderFade, SELF_FADE_WINDOW,
+    self_model_fade_alpha, FadeMaterials, PendingAppearFade, RenderFade,
 };
+
+/// The camera-to-target span (yd) over which the player's own body fades in (`0x8089b0`).
+const SELF_FADE_WINDOW: f32 = 1.8315;
 
 /// The reference's up-edge click predicate (`0x514ae0`): a click is a release within 200 ms, or
 /// within 800 ms under 2.25° of yaw and 2.0° of pitch travel (ms from `GetTickCount`, `[0x7ff310]`,

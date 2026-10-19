@@ -424,8 +424,6 @@ pub(crate) fn publish_model_alpha(
     }
 }
 
-/// The camera-to-target span (yd) over which the player's own body fades in (`0x8089b0`).
-pub const SELF_FADE_WINDOW: f32 = 1.8315;
 /// The distance above the near clip at or below which the body hides: first person.
 pub const SELF_FADE_HIDE: f32 = 0.00278;
 
@@ -924,6 +922,8 @@ mod chain_tests {
 mod tests {
     use super::*;
 
+    const SELF_FADE_TEST_WINDOW: f32 = 2.0;
+
     /// A weapon glow is two links from its wearer: glow, item, wearer.
     #[test]
     fn an_attached_models_alpha_composes_through_the_whole_chain() {
@@ -1201,10 +1201,10 @@ mod tests {
     #[test]
     fn self_fade_hidden_at_first_person() {
         let nc = 1.0;
-        assert_eq!(self_model_fade_alpha(nc, nc, SELF_FADE_WINDOW), 0.0);
-        assert_eq!(self_model_fade_alpha(0.0, nc, SELF_FADE_WINDOW), 0.0);
+        assert_eq!(self_model_fade_alpha(nc, nc, SELF_FADE_TEST_WINDOW), 0.0);
+        assert_eq!(self_model_fade_alpha(0.0, nc, SELF_FADE_TEST_WINDOW), 0.0);
         assert_eq!(
-            self_model_fade_alpha(nc + SELF_FADE_HIDE, nc, SELF_FADE_WINDOW),
+            self_model_fade_alpha(nc + SELF_FADE_HIDE, nc, SELF_FADE_TEST_WINDOW),
             0.0
         );
     }
@@ -1213,10 +1213,10 @@ mod tests {
     fn self_fade_opaque_when_zoomed_out() {
         let nc = 1.0;
         assert_eq!(
-            self_model_fade_alpha(nc + SELF_FADE_WINDOW, nc, SELF_FADE_WINDOW),
+            self_model_fade_alpha(nc + SELF_FADE_TEST_WINDOW, nc, SELF_FADE_TEST_WINDOW),
             1.0
         );
-        assert_eq!(self_model_fade_alpha(100.0, nc, SELF_FADE_WINDOW), 1.0);
+        assert_eq!(self_model_fade_alpha(100.0, nc, SELF_FADE_TEST_WINDOW), 1.0);
     }
 
     #[test]
@@ -1338,10 +1338,10 @@ mod tests {
     fn self_fade_cosine_ramp_midpoint() {
         // Mid-window the cosine smoothstep is 0.5 (cos(π/2) = 0).
         let nc = 1.0;
-        let mid = nc + SELF_FADE_WINDOW / 2.0;
-        assert!((self_model_fade_alpha(mid, nc, SELF_FADE_WINDOW) - 0.5).abs() < 1e-6);
-        let near = self_model_fade_alpha(nc + 0.4, nc, SELF_FADE_WINDOW);
-        let far = self_model_fade_alpha(nc + 1.4, nc, SELF_FADE_WINDOW);
+        let mid = nc + SELF_FADE_TEST_WINDOW / 2.0;
+        assert!((self_model_fade_alpha(mid, nc, SELF_FADE_TEST_WINDOW) - 0.5).abs() < 1e-6);
+        let near = self_model_fade_alpha(nc + 0.4, nc, SELF_FADE_TEST_WINDOW);
+        let far = self_model_fade_alpha(nc + 1.4, nc, SELF_FADE_TEST_WINDOW);
         assert!(near < far);
         assert!((0.0..=1.0).contains(&near) && (0.0..=1.0).contains(&far));
     }

@@ -74,8 +74,16 @@ const INSTRUMENT_CONSUMERS: &[&str] = &["capture", "crash", "debug_panel", "perf
 
 /// Is this file one of the app-side instruments?
 fn is_instrument_consumer(rel: &str) -> bool {
+    let rel = rel.replace('\\', "/");
     let root = rel.split(['/', '.']).next().unwrap_or("");
     INSTRUMENT_CONSUMERS.contains(&root)
+}
+
+#[test]
+fn instrument_paths_are_classified_on_windows_and_unix() {
+    assert!(is_instrument_consumer("pipe_warm/menagerie.rs"));
+    assert!(is_instrument_consumer(r"pipe_warm\menagerie.rs"));
+    assert!(!is_instrument_consumer("world_state_ui.rs"));
 }
 
 /// The designed API: every engine item game code may name, with the record that published it
@@ -433,7 +441,7 @@ fn measure() -> BTreeMap<String, BTreeSet<String>> {
             .strip_prefix(&src)
             .unwrap()
             .to_string_lossy()
-            .to_string();
+            .replace('\\', "/");
         // Without the world crate the file's module decides its side; with it, every file here
         // is on the game side.
         if (!split && is_engine(&rel)) || tests.contains(&rel) {
@@ -480,7 +488,7 @@ fn measure_back() -> BTreeMap<String, BTreeSet<String>> {
             .strip_prefix(&src)
             .unwrap()
             .to_string_lossy()
-            .to_string();
+            .replace('\\', "/");
         if tests.contains(&rel) {
             continue;
         }
@@ -532,7 +540,7 @@ fn test_module_files(src: &Path) -> BTreeSet<String> {
                                 cand.strip_prefix(src)
                                     .unwrap()
                                     .to_string_lossy()
-                                    .to_string(),
+                                    .replace('\\', "/"),
                             );
                         }
                     }
