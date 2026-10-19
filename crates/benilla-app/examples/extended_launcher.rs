@@ -31,6 +31,8 @@
 //! # without the patches the addon Lua and the mixer are not benilla's.
 //! [patch.crates-io]
 //! lua-src = { git = "https://github.com/samwhosung/benilla" }
+//! # benilla's patch keeps lua_Integer as i64 on wasm32.
+//! mlua-sys = { git = "https://github.com/samwhosung/benilla" }
 //! kira = { git = "https://github.com/samwhosung/benilla" }
 //!
 //! [profile.dev]

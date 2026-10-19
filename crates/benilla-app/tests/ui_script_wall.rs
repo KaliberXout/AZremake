@@ -30,7 +30,8 @@ fn family(rel: &str) -> Family {
         Family::Probe
     } else if file == "tests.rs" || file.ends_with("_tests.rs") || rel.contains("/tests/") {
         Family::Test
-    } else if rel.starts_with("ui_") {
+    } else if rel.starts_with("ui_") || file == "world_state_ui.rs" {
+        // This legacy-named module feeds world-state rows into the FrameXML VM.
         Family::Feed
     } else {
         Family::Game
@@ -135,4 +136,9 @@ fn the_identifier_match_is_whole_word() {
     assert!(!names_ident("UiScriptPlugin only", "UiScript"));
     assert!(!names_ident("MyUiScript", "UiScript"));
     assert!(names_ident("MyUiScript and UiScript", "UiScript"));
+}
+
+#[test]
+fn world_state_ui_is_a_feed() {
+    assert_eq!(family("world_state_ui.rs"), Family::Feed);
 }

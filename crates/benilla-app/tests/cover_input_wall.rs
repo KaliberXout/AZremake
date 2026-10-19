@@ -83,8 +83,11 @@ const VERDICTS: &[(&str, Verdict)] = &[
     ("CursorIcon", Plumbing),
     ("CustomCursor", Plumbing),
     ("CustomCursorImage", Plumbing),
+    // The webbridge uses these to wake the event loop for hidden-tab updates.
+    ("EventLoopProxyWrapper", Plumbing),
     ("InputPlugin", Plumbing),
     ("WinitPlugin", Plumbing),
+    ("WinitUserEvent", Plumbing),
     ("InputSystems", Plumbing),
     ("Key", Plumbing),
     ("KeyCode", Plumbing),
