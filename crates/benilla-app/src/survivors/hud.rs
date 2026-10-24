@@ -182,7 +182,7 @@ pub(super) enum Choice {
 /// The level-up cards on offer.
 #[derive(Resource, Default)]
 pub(super) struct Offer {
-    choices: Vec<Choice>,
+    pub(super) choices: Vec<Choice>,
 }
 
 impl Offer {
@@ -900,7 +900,14 @@ pub(super) fn menu_preview(
     );
 }
 
-pub(super) fn start_run(run: &mut Run, selection: &mut Selection) -> bool {
+/// Begin a run with the picked class and look; the dice are reset to `seed` (see
+/// [`super::run_seed`]), so the same seed and the same play give the same rolls.
+pub(super) fn start_run(
+    run: &mut Run,
+    selection: &mut Selection,
+    rng: &mut Rng,
+    seed: u64,
+) -> bool {
     let (Some(class), Some(&(_, race, _))) = (
         selection.class_def(),
         selection.look.and_then(|i| selection.looks.get(i)),
@@ -913,9 +920,12 @@ pub(super) fn start_run(run: &mut Run, selection: &mut Selection) -> bool {
     *run = Run {
         class,
         race,
+        seed,
         next_guid,
         ..Run::default()
     };
+    *rng = Rng::seeded(seed);
+    info!("survivors: run seed {seed} (WOW_SURVIVORS_SEED={seed} replays it)");
     run.abilities.push(Owned {
         def: data::ability(class.start),
         level: 1,
@@ -926,7 +936,7 @@ pub(super) fn start_run(run: &mut Run, selection: &mut Selection) -> bool {
     true
 }
 
-fn choices_for(run: &Run, rng: &mut Rng) -> Vec<Choice> {
+pub(super) fn choices_for(run: &Run, rng: &mut Rng) -> Vec<Choice> {
     let mut pool: Vec<(Choice, f32)> = Vec::new();
     for (i, o) in run.abilities.iter().enumerate() {
         if o.level < data::MAX_ABILITY_LEVEL {
@@ -1057,11 +1067,14 @@ pub(super) fn keys(
     phase: Res<State<Phase>>,
     mut selection: ResMut<Selection>,
     mut run: ResMut<Run>,
+    mut rng: ResMut<Rng>,
     mut next: ResMut<NextState<Phase>>,
 ) {
     match phase.get() {
         Phase::Menu => {
-            if keys.just_pressed(KeyCode::Enter) && start_run(&mut run, &mut selection) {
+            if keys.just_pressed(KeyCode::Enter)
+                && start_run(&mut run, &mut selection, &mut rng, super::run_seed())
+            {
                 next.set(Phase::Playing);
             }
         }
@@ -1645,8 +1658,6 @@ impl TipLine {
     }
 }
 
-/// A number as the tooltips print it: whole when near enough, else to one decimal.
-
 /// The results screen's tiles and its line under the title.
 #[allow(clippy::type_complexity)]
 pub(super) fn refresh_results(
@@ -1695,6 +1706,7 @@ fn compact(v: f64) -> String {
     }
 }
 
+/// A number as the tooltips print it: whole when near enough, else to one decimal.
 fn num(v: f32) -> String {
     if (v - v.round()).abs() < 0.05 {
         format!("{}", v.round() as i64)

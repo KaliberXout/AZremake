@@ -179,11 +179,14 @@ pub(super) fn drive(
                 auto.wait = 0.0;
             } else if auto.wait > 2.0 && auto.wait < 3.0 {
                 auto.capture_once(&mut commands, "menu".into());
-            } else if auto.wait > 3.0 && hud::start_run(&mut run, &mut selection) {
+            } else if auto.wait > 3.0
+                && hud::start_run(&mut run, &mut selection, &mut rng, super::run_seed())
+            {
                 info!(
-                    "survivors auto: run begins as {} at {}",
+                    "survivors auto: run begins as {} at {}, seed {}",
                     run.class.name,
-                    selection.map_def().name
+                    selection.map_def().name,
+                    run.seed
                 );
                 if auto.all {
                     for key in run.class.pool {

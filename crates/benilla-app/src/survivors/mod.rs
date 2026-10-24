@@ -15,6 +15,8 @@ mod hud;
 mod menu;
 mod minimap;
 mod mobility;
+#[cfg(test)]
+mod tests;
 mod units;
 
 use benilla_world::schedule::WorldStage;
@@ -241,6 +243,8 @@ pub(super) const BASE_MAGNET: f32 = 4.5;
 pub(super) struct Run {
     pub class: &'static ClassDef,
     pub race: u8,
+    /// The seed [`Rng`] was reset to when the run began ([`run_seed`]).
+    pub seed: u64,
     pub elapsed: f32,
     pub kills: u32,
     pub level: u32,
@@ -277,6 +281,7 @@ impl Default for Run {
         Self {
             class: &data::CLASSES[0],
             race: 0,
+            seed: 0,
             elapsed: 0.0,
             kills: 0,
             level: 1,
@@ -350,21 +355,42 @@ impl Run {
     }
 }
 
-/// xorshift64*: the mode's dice, seeded from the clock.
+/// xorshift64*: the mode's dice. Every run reseeds it from [`run_seed`]; until then, and for
+/// dice outside a run, it is seeded from the clock.
 #[derive(Resource)]
 pub(super) struct Rng(u64);
 
 impl Default for Rng {
     fn default() -> Self {
-        let seed = web_time::SystemTime::now()
-            .duration_since(web_time::UNIX_EPOCH)
-            .map(|d| d.as_nanos() as u64)
-            .unwrap_or(0x9E37_79B9_7F4A_7C15);
-        Self(seed | 1)
+        Self::seeded(clock_seed())
     }
 }
 
+fn clock_seed() -> u64 {
+    web_time::SystemTime::now()
+        .duration_since(web_time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0x9E37_79B9_7F4A_7C15)
+}
+
+/// The seed a new run starts from: `WOW_SURVIVORS_SEED` (`?survivors_seed=` on the web) when it
+/// holds a number, so a run can be played again, else the clock.
+pub(super) fn run_seed() -> u64 {
+    crate::webenv::var("WOW_SURVIVORS_SEED")
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or_else(clock_seed)
+}
+
 impl Rng {
+    /// A generator whose whole sequence is fixed by `seed`. The seed goes through splitmix64
+    /// first, so neighbouring seeds start far apart and zero is a seed like any other.
+    pub fn seeded(seed: u64) -> Self {
+        let mut z = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        Self((z ^ (z >> 31)) | 1)
+    }
+
     pub fn next_u64(&mut self) -> u64 {
         let mut x = self.0;
         x ^= x >> 12;
