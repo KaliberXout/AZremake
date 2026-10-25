@@ -2230,3 +2230,155 @@ pub(super) fn show_panels(
         set(root, p == Phase::GameOver);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn capped_run() -> Run {
+        let run = Run {
+            abilities: data::CLASSES[0]
+                .pool
+                .iter()
+                .take(data::MAX_ABILITIES)
+                .map(|key| Owned {
+                    def: data::ability(key),
+                    level: data::MAX_ABILITY_LEVEL,
+                    cd: 0.0,
+                })
+                .collect(),
+            passives: data::PASSIVES
+                .iter()
+                .take(data::MAX_PASSIVES)
+                .map(|p| (p, data::MAX_PASSIVE_LEVEL))
+                .collect(),
+            ..default()
+        };
+        assert_eq!(run.abilities.len(), data::MAX_ABILITIES);
+        assert_eq!(run.passives.len(), data::MAX_PASSIVES);
+        run
+    }
+
+    #[test]
+    fn choices_are_unique_eligible_and_limited_to_three() {
+        for class in data::CLASSES {
+            let mut run = Run { class, ..default() };
+            run.abilities.push(Owned {
+                def: data::ability(class.start),
+                level: 1,
+                cd: 0.0,
+            });
+            run.passives.push((&data::PASSIVES[0], 1));
+            for seed in 1..=16 {
+                let choices = choices_for(&run, &mut Rng(seed));
+                assert_eq!(choices.len(), 3);
+                let mut seen = std::collections::HashSet::new();
+                for choice in choices {
+                    let key = match choice {
+                        Choice::NewAbility(def) => {
+                            assert!(class.pool.contains(&def.key));
+                            assert!(!run.abilities.iter().any(|o| o.def.key == def.key));
+                            ("ability", def.key)
+                        }
+                        Choice::Upgrade(i) => {
+                            assert!(run.abilities[i].level < data::MAX_ABILITY_LEVEL);
+                            ("ability", run.abilities[i].def.key)
+                        }
+                        Choice::NewPassive(p) => {
+                            assert!(data::PASSIVES.iter().any(|q| q.key == p.key));
+                            assert!(!run.passives.iter().any(|(q, _)| q.key == p.key));
+                            ("passive", p.key)
+                        }
+                        Choice::UpPassive(i) => {
+                            assert!(run.passives[i].1 < data::MAX_PASSIVE_LEVEL);
+                            ("passive", run.passives[i].0.key)
+                        }
+                        Choice::Heal => panic!("eligible upgrades remain"),
+                    };
+                    assert!(seen.insert(key), "duplicate offer: {key:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn full_slots_offer_only_uncapped_upgrades_without_padding() {
+        let mut run = capped_run();
+        run.abilities[0].level -= 1;
+        run.passives[0].1 -= 1;
+        let choices = choices_for(&run, &mut Rng(1));
+        assert_eq!(choices.len(), 2);
+        assert!(choices.iter().any(|c| matches!(c, Choice::Upgrade(0))));
+        assert!(choices.iter().any(|c| matches!(c, Choice::UpPassive(0))));
+    }
+
+    #[test]
+    fn exhausted_upgrades_offer_only_heal() {
+        let choices = choices_for(&capped_run(), &mut Rng(1));
+        assert!(matches!(choices.as_slice(), [Choice::Heal]));
+    }
+
+    #[test]
+    fn pick_consumes_pending_levels_then_requests_playing() {
+        let mut run = capped_run();
+        run.abilities[0].level -= 1;
+        run.passives[0].1 -= 1;
+        run.pending_levels = 2;
+        let mut offer = Offer {
+            choices: vec![Choice::Upgrade(0)],
+        };
+        let mut rng = Rng(1);
+        let mut next = NextState::Unchanged;
+
+        pick(0, &mut run, &mut offer, &mut rng, &mut next);
+        assert_eq!(run.abilities[0].level, data::MAX_ABILITY_LEVEL);
+        assert_eq!(run.version, 1);
+        assert_eq!(run.pending_levels, 1);
+        assert!(matches!(next, NextState::Unchanged));
+        assert!(matches!(offer.choices.as_slice(), [Choice::UpPassive(0)]));
+
+        pick(0, &mut run, &mut offer, &mut rng, &mut next);
+        assert_eq!(run.passives[0].1, data::MAX_PASSIVE_LEVEL);
+        assert_eq!(run.version, 2);
+        assert_eq!(run.pending_levels, 0);
+        assert!(offer.choices.is_empty());
+        assert!(matches!(next, NextState::Pending(Phase::Playing)));
+    }
+
+    #[test]
+    fn heal_pick_restores_derived_health_and_saturates_pending_levels() {
+        let mut run = capped_run();
+        run.hp = 1.0;
+        let mut offer = Offer {
+            choices: vec![Choice::Heal],
+        };
+        let mut next = NextState::Unchanged;
+        pick(0, &mut run, &mut offer, &mut Rng(1), &mut next);
+        assert_eq!(run.hp, run.stats().max_hp);
+        assert_eq!(run.pending_levels, 0);
+        assert_eq!(run.version, 1);
+        assert!(offer.choices.is_empty());
+        assert!(matches!(next, NextState::Pending(Phase::Playing)));
+    }
+
+    #[test]
+    fn invalid_pick_leaves_run_offer_rng_and_transition_unchanged() {
+        let mut run = Run {
+            hp: 1.0,
+            pending_levels: 2,
+            ..default()
+        };
+        let mut offer = Offer {
+            choices: vec![Choice::Heal],
+        };
+        let mut rng = Rng(1);
+        let mut next = NextState::Unchanged;
+        pick(1, &mut run, &mut offer, &mut rng, &mut next);
+        assert_eq!(run.hp, 1.0);
+        assert_eq!(run.pending_levels, 2);
+        assert_eq!(run.version, 0);
+        assert!(matches!(offer.choices.as_slice(), [Choice::Heal]));
+        assert_eq!(rng.next_u64(), Rng(1).next_u64());
+        assert!(matches!(next, NextState::Unchanged));
+    }
+}
