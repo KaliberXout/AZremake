@@ -30,13 +30,30 @@ The testing checklist every milestone runs is [TESTING.md](TESTING.md).
 
   Still open before it can be marked done:
   - the new CI job's first green run on GitHub;
-  - a seeded auto run with WoW data (manual).
+  - a seeded auto run with WoW data. Done once, on the M3 tree (Mage, Elwynn, seed 1234): the
+    seed is logged and the run plays. Same-seed replay has not been compared.
+- **M3, ability data model: ready for review, not done.** Implemented and verified locally
+  ([TESTING.md § M3 record](TESTING.md#m3-record)):
+  - every name check is replaced by definition fields;
+  - level tables, tags, pierce and an evolution slot are added, all still at their defaults;
+  - both golden tables, recorded before the refactor, match bit for bit;
+  - 36 survivors tests pass, and the lint is clean;
+  - nothing is committed yet.
+
+  Still open before it can be marked done:
+  - CI on GitHub (the only remaining item);
+  - one seeded auto run per class with the WoW data, to confirm in game what the golden tables
+    prove in logic. **Done for all 9 classes** (2026-10-25, seed 1234, Elwynn): every class runs
+    with no crash. In-game use of the changed abilities was seen for `aimed_shot`, `magma_totem`,
+    `searing_totem` and `lightning_shield`, but not for `pyroblast`, `exorcism` or `starfire`;
+    their cards and numbers are pinned by the golden tables.
 
 ### Blocked
 - **Local wasm check:** needs wasi-sdk 27, which `scripts/web-setup.sh` installs on Linux/macOS
   only. Run it in CI's `wasm` job or on Linux/macOS/WSL2 (see TESTING.md).
-- **Manual playtest / running the game:** `wow-data/` is absent (`scripts/fetch-data.sh`,
-  ~5.5 GB).
+- **Manual playtest:** the WoW data is in `wow-data/Data` (fetched 2026-10-25, SHA-1 verified),
+  and the native game **runs**: one seeded Mage auto run in Elwynn, 5 min, no crash (TESTING.md §
+  M3 record). No human playtest yet. M2 measurements can now start whenever M2 is approved.
 
 ### Planned
 Milestones 1 to 10 below, in order.
@@ -201,6 +218,41 @@ always "revert the PR" at minimum. Notes say when something extra is needed.
 - **Performance / wasm:** neutral.
 - **Acceptance:** golden test identical; no string-keyed behavior left in `abilities.rs`.
 - **Rollback:** revert. No save-format change.
+- **As built (2026-10-25, uncommitted):**
+  - **New `AbilityDef` fields**, each defaulted in `ab()`:
+    - `target: Target {Nearest, Toughest}`;
+    - `pulse`, `state_visual`, `impact`;
+    - `tags: &[Tag]`, `pierce`, `levels: &[LevelBonus]`, `evolves: Option<Evolution>`.
+
+    The plan's `Densest`/`Random` targets were not added: no Bolt, Strike or Melee uses them, and
+    the area kinds already pick their own centre.
+  - **The key checks they replace:**
+    - the toughest set (pyroblast, aimed_shot, exorcism, starfire) in `abilities.rs` and `hud.rs`;
+    - the `magma_totem` pulse in `abilities.rs` and `hud.rs`;
+    - the `lightning_shield` hero visual in `hero.rs`;
+    - the Orbit's hardcoded impact 403 (now `impact_of`).
+
+    `"renew"` (`hero.rs`) is a *passive*, so it is out of M3's scope and stays.
+  - **`Owned`** reads an ability's own `levels` table when it has one (it must cover every rank;
+    a test enforces this), else the old formulas verbatim. A new `Owned::numbers()` is the single
+    composition the cast (`abilities.rs` `Params`) and the tooltips (`hud.rs` `cast_at`) share.
+  - **`cards.rs` rarity:** "this rank adds a target" now asks `count(next) > count(cur)` instead
+    of hardcoding ranks 3/5/7, so it follows any future level table.
+  - **New fields with nothing to read them yet:** `tags`, `pierce` and `evolves`, plus the `Tag`
+    and `Evolution` types. They carry narrow `#[allow(dead_code)]` attributes until M4/M5 read
+    them. No ability sets them, which a test enforces.
+  - **Golden tables, recorded from b60f004:**
+    - `testdata/abilities.golden`: every definition, plus damage, dot (at might 1 and 1.3), count,
+      duration, cooldown (haste 0 / 0.4 / 0.8) and radius (area 1 / 1.5 / 2.25) at ranks 1–8,
+      through `numbers()`;
+    - `testdata/cards.golden`: every new-spell and upgrade card's text and rarity.
+
+    Both were regenerated on a clean checkout of b60f004, and the ability table came out
+    byte-identical to the one recorded earlier. The refactored code matches both bit for bit.
+- **Not changed:** no new weapon, evolution, balance or visual change. The remaining hardcoded
+  buff visuals (Shield 17, Immune 642, Heal 774 in `hero.rs`) are spell ids, not key checks, and
+  stay. The `Kind::Aura` doc claims a hero visual that only the Orbit gets; this predates M3 and
+  is noted, not changed.
 
 ### M4: First playable "Bonk" slice (detailed below)
 Elites, gold, chests, real rarity, two new stats, one evolution per class (starting with Mage), a

@@ -372,6 +372,300 @@ fn every_passive_moves_its_stat() {
     }
 }
 
+// --- the golden ability table ---
+
+/// Every ability's definition and its numbers at every rank, under a bare hero and two hasted,
+/// widened ones (the second past the haste floor): the refactor of the definitions must leave all
+/// of it identical. Floats print with `{:?}`, the shortest text that reads back to the same bits,
+/// so an equal table is a bit-exact match.
+fn golden_table() -> String {
+    use std::fmt::Write;
+    let bare = Run::default().stats();
+    let mut mighty = bare;
+    mighty.might = 1.3;
+    let mut fast = bare;
+    fast.haste = 0.4;
+    fast.area = 1.5;
+    let mut fastest = bare;
+    fastest.haste = 0.8;
+    fastest.area = 2.25;
+    let mut out = String::new();
+    for d in data::ABILITIES {
+        writeln!(
+            out,
+            "{} spell={} kind={:?} damage={:?} dot={:?} cooldown={:?} range={:?} radius={:?} \
+             count={} duration={:?} effect={:?} mark={} totem={:?} overhead={}",
+            d.key,
+            d.spell,
+            d.kind,
+            d.damage,
+            d.dot,
+            d.cooldown,
+            d.range,
+            d.radius,
+            d.count,
+            d.duration,
+            d.effect,
+            d.mark,
+            d.totem,
+            d.overhead
+        )
+        .unwrap();
+        for level in 1..=data::MAX_ABILITY_LEVEL {
+            let o = Owned {
+                def: d,
+                level,
+                cd: 0.0,
+            };
+            // Through the one path the cast and the tooltips share, at might 1 and 1.3.
+            let (n, m) = (o.numbers(&bare), o.numbers(&mighty));
+            let (f, ff) = (o.numbers(&fast), o.numbers(&fastest));
+            writeln!(
+                out,
+                "  L{level} mult={:?} dmg={:?}/{:?} dot={:?}/{:?} count={} duration={:?} \
+                 cd={:?}/{:?}/{:?} radius={:?}/{:?}/{:?}",
+                o.damage_mult(),
+                n.dmg,
+                m.dmg,
+                n.dot,
+                m.dot,
+                n.count,
+                n.duration,
+                n.cooldown,
+                f.cooldown,
+                ff.cooldown,
+                n.radius,
+                f.radius,
+                ff.radius,
+            )
+            .unwrap();
+        }
+    }
+    out
+}
+
+/// Compare `got` with `testdata/<name>`, line by line.
+///
+/// `SURVIVORS_BLESS=1 cargo test -p benilla-app --lib survivors::tests` rewrites the files
+/// instead, and then fails, so a blessing run never passes: review `git diff` on `testdata/`
+/// before committing. Bless only for a change that is meant to move the numbers or the text,
+/// never in a refactor (M3's tables were recorded from b60f004, before it), and never in CI.
+fn check_golden(name: &str, got: &str, want: &str) {
+    if std::env::var("SURVIVORS_BLESS").is_ok_and(|v| v == "1") {
+        assert!(std::env::var_os("CI").is_none(), "refusing to bless in CI");
+        let path = format!(
+            "{}/src/survivors/testdata/{name}",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        std::fs::write(&path, got).unwrap();
+        panic!("blessed {path}; review git diff");
+    }
+    for (i, (g, w)) in got.lines().zip(want.lines()).enumerate() {
+        assert_eq!(g, w, "{name} line {}", i + 1);
+    }
+    assert_eq!(
+        got.lines().count(),
+        want.lines().count(),
+        "{name} line count"
+    );
+}
+
+#[test]
+fn ability_numbers_match_the_golden_table() {
+    check_golden(
+        "abilities.golden",
+        &golden_table(),
+        include_str!("testdata/abilities.golden"),
+    );
+}
+
+#[test]
+fn card_text_matches_the_golden_table() {
+    check_golden(
+        "cards.golden",
+        &card_table(),
+        include_str!("testdata/cards.golden"),
+    );
+}
+
+/// Every level-up card an ability can deal, as the player reads it, with the rarity it wears:
+/// each class's new-spell cards (their rarity ranks the spell among its class's), and every
+/// ability's upgrade card from each rank to the next. Spell names fall back to the keys.
+fn card_table() -> String {
+    use std::fmt::Write;
+    let line = |out: &mut String, choice: Choice, run: &Run| {
+        let c = super::hud::describe_card(choice, run, None);
+        writeln!(
+            out,
+            "{}|{}|{}|{:?}|{:?}|{}",
+            c.spell,
+            c.name,
+            c.tag,
+            c.ranks,
+            rarity(choice, run),
+            c.desc.replace('\n', "\\n")
+        )
+        .unwrap();
+    };
+    let mut out = String::new();
+    for (i, class) in data::CLASSES.iter().enumerate() {
+        let (run, _) = run_of(i, 0);
+        writeln!(out, "# new: {}", class.name).unwrap();
+        for key in class.pool {
+            line(&mut out, Choice::NewAbility(data::ability(key)), &run);
+        }
+    }
+    let (mut run, _) = run_of(0, 0);
+    for d in data::ABILITIES {
+        writeln!(out, "# upgrade: {}", d.key).unwrap();
+        for level in 1..data::MAX_ABILITY_LEVEL {
+            run.abilities = vec![Owned {
+                def: d,
+                level,
+                cd: 0.0,
+            }];
+            line(&mut out, Choice::Upgrade(0), &run);
+        }
+    }
+    out
+}
+
+// --- the definition fields that replaced key checks ---
+
+fn keys_where(f: impl Fn(&data::AbilityDef) -> bool) -> Vec<&'static str> {
+    let mut v: Vec<_> = data::ABILITIES
+        .iter()
+        .filter(|d| f(d))
+        .map(|d| d.key)
+        .collect();
+    v.sort_unstable();
+    v
+}
+
+#[test]
+fn the_toughest_target_set_is_the_one_the_code_named() {
+    assert_eq!(
+        keys_where(|d| d.target == data::Target::Toughest),
+        ["aimed_shot", "exorcism", "pyroblast", "starfire"]
+    );
+    // Targeting only steers the kinds that pick enemies in reach.
+    for d in data::ABILITIES {
+        if d.target == data::Target::Toughest {
+            assert!(matches!(
+                d.kind,
+                data::Kind::Bolt | data::Kind::Strike | data::Kind::Melee
+            ));
+        }
+    }
+}
+
+#[test]
+fn only_magma_totem_pulses() {
+    assert_eq!(keys_where(|d| d.pulse), ["magma_totem"]);
+}
+
+#[test]
+fn only_lightning_shield_keeps_its_visual_on_the_hero() {
+    assert_eq!(keys_where(|d| d.state_visual), ["lightning_shield"]);
+}
+
+#[test]
+fn impacts_are_the_spells_own_but_the_orbits() {
+    for d in data::ABILITIES {
+        let want = if d.kind == data::Kind::Orbit {
+            403
+        } else {
+            d.spell
+        };
+        assert_eq!(super::abilities::impact_of(d), want, "{}", d.key);
+    }
+}
+
+#[test]
+fn the_new_fields_are_all_at_their_defaults() {
+    for d in data::ABILITIES {
+        assert!(d.tags.is_empty(), "{} has tags", d.key);
+        assert_eq!(d.pierce, 0, "{} pierces", d.key);
+        assert!(d.levels.is_empty(), "{} has its own ranks", d.key);
+        assert!(d.evolves.is_none(), "{} evolves", d.key);
+    }
+}
+
+#[test]
+fn an_own_level_table_replaces_the_shared_curve() {
+    const FLAT: data::LevelBonus = data::LevelBonus {
+        damage: 1.0,
+        cooldown: 1.0,
+        count: 0,
+        radius: 1.0,
+        duration: 1.0,
+    };
+    const SECOND: data::LevelBonus = data::LevelBonus {
+        damage: 2.0,
+        cooldown: 0.5,
+        count: 3,
+        radius: 1.5,
+        duration: 2.0,
+    };
+    static RANKS: [data::LevelBonus; data::MAX_ABILITY_LEVEL as usize] =
+        [FLAT, SECOND, FLAT, FLAT, FLAT, FLAT, FLAT, FLAT];
+    static DEF: data::AbilityDef = data::AbilityDef {
+        levels: &RANKS,
+        ..data::test_ability()
+    };
+    let stats = Run::default().stats();
+    let at = |level| Owned {
+        def: &DEF,
+        level,
+        cd: 0.0,
+    };
+    let n = at(2).numbers(&stats);
+    assert_eq!(at(2).damage_mult(), 2.0);
+    assert_eq!(n.dmg, DEF.damage * 2.0);
+    assert_eq!(n.count, DEF.count + 3);
+    assert_eq!(n.radius, DEF.radius * 1.5);
+    assert_eq!(n.duration, DEF.duration * 2.0);
+    assert_eq!(n.cooldown, DEF.cooldown * 0.5);
+    // Every rank reads its own row, not the shared curve.
+    assert_eq!(at(3).damage_mult(), 1.0);
+    assert_eq!(at(data::MAX_ABILITY_LEVEL).count(), DEF.count);
+}
+
+#[test]
+fn a_level_table_is_empty_or_covers_every_rank() {
+    for d in data::ABILITIES {
+        assert!(
+            d.levels.is_empty() || d.levels.len() == usize::from(data::MAX_ABILITY_LEVEL),
+            "{}: {} ranks",
+            d.key,
+            d.levels.len()
+        );
+    }
+}
+
+#[test]
+fn a_rank_that_adds_a_target_is_epic() {
+    let (mut run, _) = run_of(0, 0);
+    // The Warrior's start is a Melee, whose ranks 3, 5 and 7 add a target.
+    assert_eq!(run.abilities[0].def.kind, data::Kind::Melee);
+    for (from, want) in [
+        (1, Rarity::Uncommon),
+        (2, Rarity::Epic),
+        (3, Rarity::Uncommon),
+        (4, Rarity::Epic),
+        (6, Rarity::Epic),
+        (7, Rarity::Legendary),
+    ] {
+        run.abilities[0].level = from;
+        assert_eq!(
+            rarity(Choice::Upgrade(0), &run),
+            want,
+            "rank {from} -> {}",
+            from + 1
+        );
+    }
+}
+
 // --- pacing curves ---
 
 #[test]

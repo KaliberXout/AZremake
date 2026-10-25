@@ -11,7 +11,7 @@ that was not actually run.
 | Rust 1.98.1 + clippy + rustfmt (pinned in `rust-toolchain.toml`) | everything | installed |
 | MSVC Build Tools (C++ workload) | native link, Lua C build | installed (VS Build Tools 2022) |
 | `make` | Makefile shortcuts | missing; run the scripts directly from Git Bash |
-| WoW 1.12.1 `Data` (`scripts/fetch-data.sh` → `wow-data/Data`, ~5.5 GB) | running the game, data-gated tests | **missing** |
+| WoW 1.12.1 `Data` (`scripts/fetch-data.sh` → `wow-data/Data`, ~5.5 GB) | running the game, data-gated tests | present since 2026-10-25: 14 MPQs, 5.1 GB; the zip's SHA-1 matched archive.org's (`b72598b3…5a62`). The game has not been launched yet |
 | wasm32 target + wasm-bindgen-cli 0.2.122 + wasi-sdk 27 | browser build | wasm32 target installed; wasm-bindgen-cli and wasi-sdk missing; `scripts/web-setup.sh` does not support Git Bash (Linux/Darwin only), so install wasi-sdk by hand and set `WASI_SDK`, or rely on CI |
 | Node | `web/tests/*.test.mjs` | missing |
 | WebGPU browser | running the browser build | not checked |
@@ -170,6 +170,46 @@ Supported environments:
   already covers the survivors code, because `wenilla` boots `run_survivors`. Reuse it as is.
 - **Locally:** Linux, macOS or WSL2 with `scripts/web-setup.sh`. On plain Windows the check is not
   supported. No workaround has been tried.
+
+## M3 record
+
+Automated, local only (Windows 11, rustc 1.98.1, MSVC), on `docs/megabonk-roadmap` with the M3
+changes uncommitted on top of b60f004. Not run on GitHub CI, and no manual playtest (the WoW data
+is present, but the game has not been launched).
+
+| Date | Check | Result |
+|---|---|---|
+| 2026-10-25 | golden tables recorded before the refactor | `abilities.golden` (657 lines) recorded from the unchanged code. A regeneration on a clean b60f004 checkout was **byte-identical** (SHA-1 `136663c7…420c`). `cards.golden` (666 lines) recorded on that b60f004 checkout |
+| 2026-10-25 | `cargo test -p benilla-app --lib survivors` | **36 passed**, 0 failed: the 26 M1 tests, 2 golden tables, 8 field/level-table/rarity tests |
+| 2026-10-25 | `cargo check -p warcraft-survivors` | pass |
+| 2026-10-25 | `cargo check -p warcraft-survivors --no-default-features` | pass; the same 4 baseline upstream warnings |
+| 2026-10-25 | `scripts/survivors-lint.sh` (and with `--no-default-features`) | clean |
+| 2026-10-25 | survivors rustfmt check | pass |
+| 2026-10-25 | CI-filter tests (`rig_anim::compose` 7, `web_budget` 2, `wenilla-host` 12, `script::tests::events` 10, `wenilla_listener` 2) | 33 passed. Run on the M3 tree before the two review fixes, which touched only survivors files these crates don't depend on |
+| 2026-10-25 | wasm check | blocked locally (wasi-sdk); CI's `wasm` job covers it, not yet run |
+| 2026-10-25 | **first native launch**: `cargo build --profile play -p warcraft-survivors` (6m 52s), then `WOW_DATA=…/wow-data/Data WOW_SURVIVORS_SEED=1234 WOW_SURVIVORS_AUTO=mage WOW_SURVIVORS_MAP=elwynn WOW_SURVIVORS_SHOTS=<dir>`, stopped by a 300 s `timeout` | **runs.** Boot → menu → `run seed 1234` → Elwynn loading screen (23 s) → play. Reached run time 205 s: level 27, 929 kills, up to 97 alive. HP never hit 0, so no death. About 60 fps in play. No panic and no error. Screenshots show the WoW pick screen, rarity cards (Pyroblast reads "toughest enemy in range") and the horde fight with spell visuals |
+
+| 2026-10-25 | seeded auto run for each of the other 8 classes: the same binary and command with `WOW_SURVIVORS_AUTO=<class>`, Elwynn, seed 1234, `timeout 150` | **all 8 run**: no panic or error, and each log's "run begins as …" names the requested class. Run time reached 112–132 s. Ended at: Warrior lv 17 (409 kills), Hunter lv 14 (380), Priest lv 9, Shaman lv 9, Druid lv 7, Paladin lv 5, Rogue lv 5, Warlock lv 5 (hp 28). Abilities M3 touched that came up in play: Hunter's `aimed_shot` (toughest target), Shaman's `magma_totem` (pulse), `searing_totem` (no pulse) and `lightning_shield` (hero visual, impact 403). `pyroblast`, `exorcism` and `starfire` were not picked in any run. 2–6 frame-hitch warnings per run, mostly behind the loading screen |
+
+**Notes from the first launch** (observations, not measurements; M2 does the measuring):
+- **Frame hitches:** 340–1357 ms hitches happen behind both loading screens. Five more, of 410–430 ms, happened during play, a minute or more apart. Their cause has not been investigated.
+- **Audio:** one "zone music stream starved" warning right after the Elwynn loading screen.
+- **Run-time pace:** the run clock advanced 205 s over about 4.4 min of play, because each level-up card screen pauses it. The fps column in the auto log averages over 10 s of real time.
+- **Replay:** a second run with the same seed has not been compared (see § Seeded runs for the limits).
+
+Process note: the b60f004 checkout shared `target/` with the main tree. Cargo then reused that
+checkout's test binary and Lua build-script output for the main tree. That run was discarded,
+`cargo clean -p` was run on the path packages, and all results above come from a clean rebuild.
+Don't share `target/` across worktrees.
+
+### Golden tables
+`crates/benilla-app/src/survivors/testdata/abilities.golden` and `cards.golden` pin every
+ability's numbers at every rank, and every level-up card's text and rarity. `.gitattributes` keeps
+`*.golden` at LF.
+- **They run with the survivors tests.** A mismatch names the file and line.
+- **To re-record** (only for a change *meant* to move numbers or text, never for a refactor):
+  `SURVIVORS_BLESS=1 cargo test -p benilla-app --lib survivors`. It rewrites the files and then
+  fails on purpose, so review `git diff -- '*/testdata/*'`. It refuses to run when `CI` is set.
 
 ## Per-change checklist
 

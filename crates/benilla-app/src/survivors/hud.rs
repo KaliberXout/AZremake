@@ -11,7 +11,7 @@ use bevy::shader::ShaderRef;
 use bevy::ui_render::ui_material::{MaterialNode, UiMaterial};
 use bevy::window::PrimaryWindow;
 
-use super::data::{self, AbilityDef, Effect, Kind, PassiveDef, Stat};
+use super::data::{self, AbilityDef, Effect, Kind, PassiveDef, Stat, Target};
 use super::hero::{self, Hero};
 use super::minimap::{self, MiniMap};
 use super::{Owned, Phase, Rng, Run, Selection, Stats};
@@ -1731,19 +1731,19 @@ struct Cast {
 }
 
 fn cast_at(def: &'static AbilityDef, level: u8, stats: &Stats) -> Cast {
-    let o = Owned {
+    let n = Owned {
         def,
         level,
         cd: 0.0,
-    };
-    let mult = o.damage_mult() * stats.might;
+    }
+    .numbers(stats);
     Cast {
-        dmg: def.damage * mult,
-        dot: def.dot * mult,
-        count: o.count(),
-        radius: o.radius(stats),
-        duration: o.duration(),
-        cooldown: o.cooldown(stats),
+        dmg: n.dmg,
+        dot: n.dot,
+        count: n.count,
+        radius: n.radius,
+        duration: n.duration,
+        cooldown: n.cooldown,
     }
 }
 
@@ -1770,7 +1770,7 @@ fn ability_body(def: &AbilityDef, c: &Cast) -> String {
     let burst = def.duration <= 0.0;
     let mut s = match def.kind {
         Kind::Bolt | Kind::Strike | Kind::Melee => {
-            let toughest = matches!(def.key, "pyroblast" | "aimed_shot" | "exorcism" | "starfire");
+            let toughest = def.target == Target::Toughest;
             let melee = def.kind == Kind::Melee;
             let who = match (toughest, melee, c.count) {
                 (true, _, 1) => "the toughest enemy in range".to_string(),
@@ -1832,7 +1832,7 @@ fn ability_body(def: &AbilityDef, c: &Cast) -> String {
             num(c.duration)
         ),
         Kind::Heal => format!("Below 85% health, heals you for {d} over {} sec", num(c.duration)),
-        Kind::Totem if def.key == "magma_totem" => format!(
+        Kind::Totem if def.pulse => format!(
             "Drops a totem for {} sec that burns every enemy within {} yd for {d} damage every 2 sec",
             num(c.duration),
             num(c.radius)

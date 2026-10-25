@@ -199,23 +199,64 @@ pub(super) struct Owned {
     pub cd: f32,
 }
 
+/// The numbers one cast of an ability uses, from its rank and the hero's stats.
+pub(super) struct Numbers {
+    pub dmg: f32,
+    pub dot: f32,
+    pub count: u32,
+    pub radius: f32,
+    pub duration: f32,
+    pub cooldown: f32,
+}
+
+/// Each method reads the ability's own level table when it has one, else the shared curve.
 impl Owned {
+    fn rank(&self) -> Option<&'static data::LevelBonus> {
+        self.def.levels.get(usize::from(self.level) - 1)
+    }
     pub fn damage_mult(&self) -> f32 {
-        1.0 + 0.3 * f32::from(self.level - 1)
+        match self.rank() {
+            Some(r) => r.damage,
+            None => 1.0 + 0.3 * f32::from(self.level - 1),
+        }
     }
     pub fn cooldown(&self, stats: &Stats) -> f32 {
-        let base = self.def.cooldown * 0.93f32.powi(i32::from(self.level) - 1);
+        let base = match self.rank() {
+            Some(r) => self.def.cooldown * r.cooldown,
+            None => self.def.cooldown * 0.93f32.powi(i32::from(self.level) - 1),
+        };
         (base * (1.0 - stats.haste).max(0.35)).max(0.2)
     }
     pub fn count(&self) -> u32 {
-        let extra = [3u8, 5, 7].iter().filter(|&&l| self.level >= l).count() as u32;
+        let extra = match self.rank() {
+            Some(r) => r.count,
+            None => [3u8, 5, 7].iter().filter(|&&l| self.level >= l).count() as u32,
+        };
         self.def.count + extra
     }
     pub fn radius(&self, stats: &Stats) -> f32 {
-        self.def.radius * (1.0 + 0.08 * f32::from(self.level - 1)) * stats.area
+        match self.rank() {
+            Some(r) => self.def.radius * r.radius * stats.area,
+            None => self.def.radius * (1.0 + 0.08 * f32::from(self.level - 1)) * stats.area,
+        }
     }
     pub fn duration(&self) -> f32 {
-        self.def.duration * (1.0 + 0.1 * f32::from(self.level - 1))
+        match self.rank() {
+            Some(r) => self.def.duration * r.duration,
+            None => self.def.duration * (1.0 + 0.1 * f32::from(self.level - 1)),
+        }
+    }
+    /// Everything a cast takes, composed the one way the cast and the tooltips both use.
+    pub fn numbers(&self, stats: &Stats) -> Numbers {
+        let mult = self.damage_mult() * stats.might;
+        Numbers {
+            dmg: self.def.damage * mult,
+            dot: self.def.dot * mult,
+            count: self.count(),
+            radius: self.radius(stats),
+            duration: self.duration(),
+            cooldown: self.cooldown(stats),
+        }
     }
 }
 
