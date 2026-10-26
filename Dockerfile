@@ -21,8 +21,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /src
 COPY . .
 
+# WEB_DEBUG=1: keep the wasm name section, so a browser panic names real Rust functions instead
+# of raw offsets — docker build --build-arg WEB_DEBUG=1 (see AGENTS.md's troubleshooting table).
+ARG WEB_DEBUG=0
+ARG WEB_BACKEND=webgpu
 RUN scripts/web-setup.sh
-RUN scripts/web-build.sh
+RUN WEB_DEBUG="${WEB_DEBUG}" WEB_BACKEND="${WEB_BACKEND}" scripts/web-build.sh
 RUN cargo build --release -p wenilla-host
 
 FROM debian:bookworm-slim AS runtime
