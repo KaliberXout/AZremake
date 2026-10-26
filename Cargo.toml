@@ -22,7 +22,24 @@ anyhow = "1.0.102"
 # plugin that takes bevy with its default features brings the audio stack back too.
 bevy = { version = "0.18.1", default-features = false, features = [
     "default_app",
-    "default_platform",
+    # `default_platform`'s own feature list, minus `webgl2` and `multi_threaded`: `webgl2` turns
+    # on wgpu's `webgl` backend alongside whichever backend the app actually asked for (`webgpu`
+    # here, bevy/webgpu via benilla-app/webgpu), and a wasm build with both compiled in fails
+    # WebGPU surface creation with an empty "no backend attempted" error
+    # (`FailedToCreateSurfaceForAnyBackend({})`). `multi_threaded` spins Bevy's task pools onto
+    # real Web Workers on wasm (this repo's own rule is "no threads... on wasm" — see AGENTS.md);
+    # a worker picking up `RenderPlugin::build`'s async init and calling `canvas.getContext` from
+    # a different JS realm than the main thread's is why the resulting context's own `dyn_into`
+    # check fails there (`canvas context is not a GPUCanvasContext`), identically on every engine.
+    "std",
+    "android-game-activity",
+    "android_shared_stdcxx",
+    "bevy_gilrs",
+    "bevy_winit",
+    "default_font",
+    "x11",
+    "wayland",
+    "sysinfo_plugin",
     "2d_bevy_render",
     "3d_bevy_render",
     "ui_api",
@@ -31,7 +48,13 @@ bevy = { version = "0.18.1", default-features = false, features = [
     "picking",
 ] }
 # For the `WOW_GPU_MS` meter's query set, which bevy 0.18 does not wrap; must match bevy's wgpu.
-wgpu = "27"
+# `default-features = false`: only the query-set types are used here, bevy_render picks the
+# actual backend. wgpu's own `default` pulls in a `web` feature that turns on BOTH `webgl` and
+# `webgpu` together — on the wasm build that silently fights the `webgpu`-only backend the app
+# asks for (benilla-app/webgpu -> bevy/webgpu), and one browser GPU context can only ever bind
+# to one API: whichever backend's code touches the canvas first wins, and the other's surface
+# creation then fails with an empty "no backend attempted" error — the crash this fixes.
+wgpu = { version = "27", default-features = false }
 clap = { version = "4.6.1", features = ["derive"] }
 sha1 = "0.10.6"
 

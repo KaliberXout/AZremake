@@ -1,0 +1,30 @@
+services:
+  game:
+    build:
+      context: .
+    ports:
+      - "8090:8090"
+    volumes:
+      - wow-data:/data:ro
+      # Already have a WoW 1.12.1 client? Point here instead of the named volume and skip
+      # the fetch-data service entirely:
+      # - /path/to/your/WoW/Data:/data/Data:ro
+    restart: unless-stopped
+
+  # One-off: downloads the WoW 1.12.1 client (~5.5 GB) into the `wow-data` volume. Re-running it
+  # is cheap — it skips the download once the MPQs are present. Run once before first `up`:
+  #   docker compose --profile setup run --rm fetch-data
+  fetch-data:
+    build:
+      context: .
+      target: builder
+    profiles: ["setup"]
+    entrypoint: ["scripts/fetch-data.sh"]
+    environment:
+      WOW_DATA_DIR: /data
+      # WOW_DATA_URL: https://your-mirror.example/client.zip
+    volumes:
+      - wow-data:/data
+
+volumes:
+  wow-data:

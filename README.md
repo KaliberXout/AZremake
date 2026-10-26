@@ -68,6 +68,32 @@ make start     # → open http://127.0.0.1:8090/
 
 Run `make` (or `make help`) to list every target.
 
+## Play it with Docker
+
+The build above needs a Rust toolchain, the exact pinned `wasm-bindgen-cli`, wasi-sdk and
+binaryen on your machine — several hundred MB of tooling, a `~/.cargo` full of crate sources, and
+a `target/` directory that grows into the tens of GB as you rebuild. None of that is needed to
+*play*: it only exists to produce `web/dist/` and the `wenilla-host` binary. Docker builds both
+inside a throwaway container and keeps none of it on your system — just the final image.
+
+```bash
+docker compose --profile setup run --rm fetch-data   # once: downloads the game data into a volume
+docker compose up --build                            # → open http://127.0.0.1:8090/
+```
+
+The first `up --build` compiles the wasm client and the host (same work `make build` does, just
+containerized) and takes a while; rebuilds are layer-cached and only redo what changed. Already
+have a WoW client on disk? Skip `fetch-data` and bind-mount it instead — see the commented line
+in `docker-compose.yaml`.
+
+**Behind a reverse proxy:** WebGPU only initializes on a secure context — `localhost`, or HTTPS.
+Serving over plain HTTP from a LAN IP leaves the canvas black. `docker-compose.traefik` is a
+standalone copy of `docker-compose.yaml` with example Traefik router labels and an external
+`traefik` network that terminates TLS in front of the `game` service, instead of publishing
+`8090` directly. Swap in your own `Host(...)` rule, then either run it as-is
+(`docker compose -f docker-compose.traefik up -d --build`) or replace `docker-compose.yaml` with
+it if Traefik is how you always run this.
+
 ## Controls
 
 See [CONTROLS.md](CONTROLS.md). The short version: **WASD** to move, **Space** to jump, **F**
