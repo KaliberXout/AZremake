@@ -68,6 +68,24 @@ make start     # → open http://127.0.0.1:8090/
 
 Run `make` (or `make help`) to list every target.
 
+## Play it with Docker
+
+The build above needs a Rust toolchain, the exact pinned `wasm-bindgen-cli`, wasi-sdk and
+binaryen on your machine — several hundred MB of tooling, a `~/.cargo` full of crate sources, and
+a `target/` directory that grows into the tens of GB as you rebuild. None of that is needed to
+*play*: it only exists to produce `web/dist/` and the `wenilla-host` binary. Docker builds both
+inside a throwaway container and keeps none of it on your system — just the final image.
+
+```bash
+docker compose --profile setup run --rm fetch-data   # once: downloads the game data into a volume
+docker compose up --build                            # → open http://127.0.0.1:8090/
+```
+
+The first `up --build` compiles the wasm client and the host (same work `make build` does, just
+containerized) and takes a while; rebuilds are layer-cached and only redo what changed. Already
+have a WoW client on disk? Skip `fetch-data` and bind-mount it instead — see the commented line
+in `docker-compose.yaml`.
+
 ## Controls
 
 See [CONTROLS.md](CONTROLS.md). The short version: **WASD** to move, **Space** to jump, **F**
