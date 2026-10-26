@@ -5,7 +5,9 @@
 # it, then ships just the compiled output in a small runtime image.
 #
 # The game data (a WoW 1.12.1 client's Data/*.MPQ files) is NOT baked into the image — this repo
-# ships no Blizzard content. Mount it at /data at runtime (see docker-compose.yaml).
+# ships no Blizzard content. Mount it at /data/Data at runtime (see docker-compose.yaml); that
+# nested `Data/` is where scripts/fetch-data.sh always extracts the MPQs, matching the layout
+# `benilla_formats::Chain::open` expects.
 
 FROM rust:1.98.1-bookworm AS builder
 
@@ -36,4 +38,4 @@ ENV RUST_LOG=info
 EXPOSE 8090
 
 ENTRYPOINT ["/app/wenilla-host"]
-CMD ["--bind", "0.0.0.0:8090", "--www", "/app/web/dist", "--data", "/data"]
+CMD ["--bind", "0.0.0.0:8090", "--www", "/app/web/dist", "--data", "/data/Data"]
