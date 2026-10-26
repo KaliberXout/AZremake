@@ -1,0 +1,44 @@
+services:
+  game:
+    build:
+      context: .
+    volumes:
+      - wow-data:/data:ro
+      # Already have a WoW 1.12.1 client? Point here instead of the named volume and skip
+      # the fetch-data service entirely:
+      # - /path/to/your/WoW/Data:/data/Data:ro
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - traefik.backend=azeroth-survivors
+      - traefik.http.routers.azeroth-survivors.entryPoints=http,https
+      - traefik.http.routers.azeroth-survivors.rule=Host("azeroth-survivors.domain.tld")
+      - traefik.http.routers.azeroth-survivors.tls=true
+      - traefik.http.services.azeroth-survivors.loadbalancer.server.port=8090
+    networks:
+      - traefik
+      - default
+    restart: unless-stopped
+
+  # One-off: downloads the WoW 1.12.1 client (~5.5 GB) into the `wow-data` volume. Re-running it
+  # is cheap — it skips the download once the MPQs are present. Run once before first `up`:
+  #   docker compose --profile setup run --rm fetch-data
+  fetch-data:
+    build:
+      context: .
+      target: builder
+    profiles: ["setup"]
+    entrypoint: ["scripts/fetch-data.sh"]
+    environment:
+      WOW_DATA_DIR: /data
+      # WOW_DATA_URL: https://your-mirror.example/client.zip
+    volumes:
+      - wow-data:/data
+
+volumes:
+  wow-data:
+
+networks:
+  default:
+  traefik:
+    external: true

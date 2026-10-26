@@ -86,6 +86,14 @@ containerized) and takes a while; rebuilds are layer-cached and only redo what c
 have a WoW client on disk? Skip `fetch-data` and bind-mount it instead — see the commented line
 in `docker-compose.yaml`.
 
+**Behind a reverse proxy:** WebGPU only initializes on a secure context — `localhost`, or HTTPS.
+Serving over plain HTTP from a LAN IP leaves the canvas black. `docker-compose.traefik` is a
+standalone copy of `docker-compose.yaml` with example Traefik router labels and an external
+`traefik` network that terminates TLS in front of the `game` service, instead of publishing
+`8090` directly. Swap in your own `Host(...)` rule, then either run it as-is
+(`docker compose -f docker-compose.traefik up -d --build`) or replace `docker-compose.yaml` with
+it if Traefik is how you always run this.
+
 ## Controls
 
 See [CONTROLS.md](CONTROLS.md). The short version: **WASD** to move, **Space** to jump, **F**
