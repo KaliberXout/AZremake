@@ -2,6 +2,12 @@
 <meta charset="utf-8">
 <title>Azeroth Survivors</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<!-- Installable as an app (Chrome/Edge "Install", Safari "Add to Dock"): a window of its own, no
+     tabs or address bar, its own icon. Offline play is a separate, opt-in switch (?offline=1,
+     web/sw.js). -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#000000">
 <style>
   html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
   #benilla { display: block; width: 100vw; height: 100vh; }
@@ -86,6 +92,10 @@
   import('./platform.js')
     .then(({ requestPersistentStorage }) => requestPersistentStorage())
     .catch((e) => console.warn('platform.js:', e));
+  // The opt-in offline mode (`?offline=1` / `?offline=0`, web/sw.js): same terms as above.
+  import('./offline.js')
+    .then(({ syncOfflineMode }) => syncOfflineMode())
+    .catch((e) => console.warn('offline.js:', e));
   // The JavaScript bridge (web/bridge.js, `window.wenilla` in the console): live game state
   // out, commands in, the hidden-tab keepalive. Dynamic, never load-bearing, and only on request:
   // `?bridge=1` loads it, `?bridge=hud` / `?bridge=idle` also mount an example from web/examples/.

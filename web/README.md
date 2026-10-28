@@ -75,6 +75,32 @@ own accounts (a second login on one account kicks the first, as in the real clie
   — which live in the ordinary HTTP cache, warmed by `boot.js` — are **not** protected by it;
   holding those across eviction would mean rehosting them in the Cache API, which nothing here
   does today.
+- **Install as an app** — `web/manifest.webmanifest` (copied with `web/icons/` by
+  `scripts/web-build.sh`) makes the dev page installable: Chrome and Edge show "Install" in the
+  address bar, Safari has File › Add to Dock. The game then opens in a window of its own, with
+  no tabs or address bar, and gets its own icon in the dock or start menu. Installing also helps
+  `navigator.storage.persist()` (see Persistence): Chrome counts an installed app toward
+  granting it.
+- **Offline mode (opt-in)** — `?offline=1` (`web/offline.js`) registers `web/sw.js`, a service
+  worker that keeps copies of the page, the wasm and the game files the client reads, so the game
+  still starts and plays when `wenilla-host` is not running. `?offline=0` unregisters it and
+  deletes what it stored; the choice is remembered, and the console says what is stored. It
+  copies what the host serves, so **only what was read online is playable offline**: turning it
+  on stores the page and the boot and world-entry read-sets (`boot-manifest.json`,
+  `world-manifest.json`), and every zone is added the first time it is played online. A zone
+  never played online fails to load offline (a 503 for each missing file). How the client's
+  *synchronous* reads (`benilla-formats/src/web.rs`) get their copy depends on the browser:
+  - **Chromium and Safari** never route a synchronous XHR through a service worker. Those reads
+    come from the HTTP cache, where `/data/*` is already kept for a year (`immutable`) and which
+    the worker's warm-up fills too. They cost nothing extra, but that cache is the browser's
+    shared LRU: under disk pressure it can drop files, and those zones then need the host again.
+  - **Firefox** routes them through the worker, so they come from the Cache API (quota storage,
+    which `persist()` protects). The price is the worker's hop on every read: in a headless
+    measurement each synchronous read went from about 2.7 ms to 5.4 ms, which shows mostly at
+    boot (~400 reads) and at zone loads.
+  The page itself is fetched from the host first whenever it is up (it changes with every
+  build), and the stored copy is used only when the host cannot be reached; an unchanged wasm
+  is not rewritten into the store.
 - **Performance** — the client is CPU-bound on its single wasm thread (Bevy's task pools are
   single-threaded on `wasm32`): ~11 ms/frame in an outdoor scene on a laptop iGPU, scaling
   with visible objects, not pixels. `scripts/web-build.sh` runs `wasm-opt -O3` (+6 %). Any CVar

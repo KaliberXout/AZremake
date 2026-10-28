@@ -56,6 +56,11 @@ make build     # fetch game data + install toolchain + build the wasm (~5.5 GB d
 make start     # → open http://127.0.0.1:8090/
 ```
 
+Once it is running, Chrome and Edge offer **Install** in the address bar (Safari: File › Add to
+Dock). The game then opens in a window of its own, with an icon. To keep playing without
+`make start`, open `http://127.0.0.1:8090/?offline=1` once: the zones you play from then on stay
+playable offline (`?offline=0` turns it off; details in [web/README.md](web/README.md)).
+
 `make build` chains three re-runnable scripts, each skipping what's already done:
 
 | Step | What it does |
