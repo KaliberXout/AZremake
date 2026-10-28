@@ -34,7 +34,7 @@ mkdir -p "${DIST}"
 strip=(--remove-name-section --remove-producers-section)
 [ "${WEB_DEBUG:-0}" = 1 ] && strip=()
 wasm-bindgen --target web --no-typescript ${strip[@]+"${strip[@]}"} --out-dir "${DIST}" "${WASM}"
-cp web/index.html web/favicon.svg web/wasi_stubs.js web/boot.js web/platform.js web/bridge.js "${DIST}/"
+cp web/index.html web/favicon.svg web/wasi_stubs.js web/boot.js web/platform.js web/bridge.js web/offline.js web/sw.js "${DIST}/"
 # The install manifest and its icons (web/README.md § "Install as an app").
 cp web/manifest.webmanifest "${DIST}/"
 mkdir -p "${DIST}/icons" && cp web/icons/*.png "${DIST}/icons/"
