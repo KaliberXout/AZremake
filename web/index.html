@@ -2,6 +2,11 @@
 <meta charset="utf-8">
 <title>Azeroth Survivors</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<!-- Installable as an app (Chrome/Edge "Install", Safari "Add to Dock"): a window of its own, no
+     tabs or address bar, its own icon. No service worker on purpose: see web/README.md. -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#000000">
 <style>
   html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
   #benilla { display: block; width: 100vw; height: 100vh; }

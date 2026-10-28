@@ -56,6 +56,10 @@ make build     # fetch game data + install toolchain + build the wasm (~5.5 GB d
 make start     # → open http://127.0.0.1:8090/
 ```
 
+Once it is running, Chrome and Edge offer **Install** in the address bar (Safari: File › Add to
+Dock). The game then opens in a window of its own, with an icon, while `make start` keeps
+serving it.
+
 `make build` chains three re-runnable scripts, each skipping what's already done:
 
 | Step | What it does |

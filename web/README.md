@@ -75,6 +75,17 @@ own accounts (a second login on one account kicks the first, as in the real clie
   — which live in the ordinary HTTP cache, warmed by `boot.js` — are **not** protected by it;
   holding those across eviction would mean rehosting them in the Cache API, which nothing here
   does today.
+- **Install as an app** — `web/manifest.webmanifest` (copied with `web/icons/` by
+  `scripts/web-build.sh`) makes the dev page installable: Chrome and Edge show "Install" in the
+  address bar, Safari has File › Add to Dock. The game then opens in a window of its own, with
+  no tabs or address bar, and gets its own icon in the dock or start menu. It is still the page
+  served by `wenilla-host`: `make start` has to be running, and the install is tied to that
+  origin (`http://127.0.0.1:8090/`). Installing also helps `navigator.storage.persist()` (see
+  Persistence): Chrome counts an installed app toward granting it. There is **no service
+  worker** on purpose. A controlled page sends every request through the worker's `fetch`
+  event, including the boot's ~100 synchronous `/data/*` reads and every later archive read,
+  and the client is CPU-bound on the thread that waits for them. It would buy no offline mode
+  either: without the host there is no `/data/*` to play from.
 - **Performance** — the client is CPU-bound on its single wasm thread (Bevy's task pools are
   single-threaded on `wasm32`): ~11 ms/frame in an outdoor scene on a laptop iGPU, scaling
   with visible objects, not pixels. `scripts/web-build.sh` runs `wasm-opt -O3` (+6 %). Any CVar

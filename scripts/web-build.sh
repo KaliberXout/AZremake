@@ -35,6 +35,9 @@ strip=(--remove-name-section --remove-producers-section)
 [ "${WEB_DEBUG:-0}" = 1 ] && strip=()
 wasm-bindgen --target web --no-typescript ${strip[@]+"${strip[@]}"} --out-dir "${DIST}" "${WASM}"
 cp web/index.html web/favicon.svg web/wasi_stubs.js web/boot.js web/platform.js web/bridge.js "${DIST}/"
+# The install manifest and its icons (web/README.md § "Install as an app").
+cp web/manifest.webmanifest "${DIST}/"
+mkdir -p "${DIST}/icons" && cp web/icons/*.png "${DIST}/icons/"
 # The bridge examples (web/README.md § "JavaScript bridge"): a HUD, an idle loop.
 mkdir -p "${DIST}/examples" && cp web/examples/*.js "${DIST}/examples/"
 # The boot prefetch manifest (see web/boot.js) — optional so a tree that hasn't captured one
