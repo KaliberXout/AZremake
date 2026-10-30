@@ -242,8 +242,8 @@ function createBootUi() {
     </style>
     <div class="embers"></div>
     <div class="box">
-      <div class="title">Azeroth Survivors</div>
-      <div class="by">a fan-made roguelike by Aethus</div>
+      <div class="title">KothanX Arena</div>
+      <div class="by">Master Conny Goku Vs Kapten Bobby Kalsong</div>
       <div class="stage">Loading…</div>
       <div class="bar"><i></i></div>
       <div class="data"></div>
