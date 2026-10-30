@@ -67,6 +67,7 @@
   // nothing in survivors reads them, so it stays off unless a `?bridge=` link asks for it.
   window.__wenilla_env = {
     dev_query_creds: '1',
+    survivors: '1',
     ...(new URLSearchParams(location.search).has('bridge') ? {} : { bridge: '0' }),
   };
 </script>
