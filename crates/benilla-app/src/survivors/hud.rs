@@ -273,9 +273,29 @@ fn icon(spell: u32, size: f32) -> impl Bundle {
 }
 
 fn spell_name(spells: Option<&crate::ui_action::Spells>, spell: u32, fallback: &str) -> String {
-    spells
-        .and_then(|s| s.catalog.get(spell))
-        .map(|d| d.name.clone())
+    // The two fan-made fighters have their own move names while retaining the original spell
+    // records for icons, animation chains and combat behaviour.
+    let themed = match fallback {
+        "sinister_strike" => Some("Instant Transmission Strike"),
+        "eviscerate" => Some("Dragon Fist"),
+        "blade_flurry" => Some("Super Saiyan Flurry"),
+        "rupture" => Some("Spirit Bomb"),
+        "gouge" => Some("Solar Flare"),
+        "kidney_shot" => Some("Dragon Rush"),
+        "cleave" => Some("Captain's Cleave"),
+        "heroic_strike" => Some("Underpants Power Punch"),
+        "whirlwind" => Some("Cape Cyclone"),
+        "thunder_clap" => Some("Thunderous Tighty Whirl"),
+        "sweeping_strikes" => Some("Heroic Double Tap"),
+        "demoralizing_shout" => Some("Captain's Command"),
+        "execute" => Some("Final Justice"),
+        "mortal_strike" => Some("Mega Underpants Smash"),
+        "retaliation" => Some("Captain's Comeback"),
+        _ => None,
+    };
+    themed
+        .map(str::to_owned)
+        .or_else(|| spells.and_then(|s| s.catalog.get(spell)).map(|d| d.name.clone()))
         .unwrap_or_else(|| fallback.replace('_', " "))
 }
 
