@@ -1007,7 +1007,7 @@ pub(crate) static CLASSES: &[ClassDef] = &[
         ],
         weapons: &[(0, 7492, 2, 7, 1, 13, 3), (1, 6443, 2, 15, 1, 13, 3)],
         sheath: 1,
-    },,
+    },
     ClassDef {
         id: 1,
         name: "Kapten Bobby Kalsong",
