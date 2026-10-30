@@ -188,6 +188,7 @@ pub(super) fn aim_cursor(
 pub(super) fn drive_hero(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
+    gamepads: Query<&Gamepad>,
     phase: Res<State<Phase>>,
     run: Res<Run>,
     selection: Res<Selection>,
@@ -219,6 +220,18 @@ pub(super) fn drive_hero(
                 }
                 if keys.any_pressed([KeyCode::KeyD, KeyCode::ArrowRight]) {
                     dir.x += 1.0;
+                }
+                // A connected controller can drive the same hero with the left stick. Keyboard
+                // and controller input are combined, so either can be used without a mode switch.
+                if let Some(gamepad) = gamepads.iter().next() {
+                    let stick_x = gamepad.get(GamepadAxis::LeftStickX).unwrap_or(0.0);
+                    let stick_y = gamepad.get(GamepadAxis::LeftStickY).unwrap_or(0.0);
+                    if stick_x.abs() > 0.18 {
+                        dir.x += stick_x;
+                    }
+                    if stick_y.abs() > 0.18 {
+                        dir.z -= stick_y;
+                    }
                 }
                 // In orbit mode WASD is camera-relative; in fixed mode it stays world-relative.
                 if rig.mode == CamMode::Orbit {
@@ -272,7 +285,14 @@ pub(super) fn drive_hero(
             let ground = world.terrain_height_under(pos).unwrap_or(pos.y);
             let playing = *phase.get() == Phase::Playing && run.dead_t.is_none();
             // Space hops: lift off the terrain, then gravity brings the hero back down.
-            if playing && keys.just_pressed(KeyCode::Space) && hm.vy == 0.0 && hm.air == 0.0 {
+            let controller_jump = gamepads
+                .iter()
+                .any(|gamepad| gamepad.just_pressed(GamepadButton::South));
+            if playing
+                && (keys.just_pressed(KeyCode::Space) || controller_jump)
+                && hm.vy == 0.0
+                && hm.air == 0.0
+            {
                 hm.vy = JUMP_SPEED;
             }
             if playing && (hm.vy != 0.0 || hm.air > 0.0) {
