@@ -1,12 +1,12 @@
 # Controls
 
-**Azeroth Survivors** — top-down, one hand on WASD, the other on the wheel.
+**KothanX Arena** — current controls for the single-player build. Planned Player 2 bindings are listed below but are not active yet.
 
 | When | Key / Input | Action |
 |---|---|---|
 | Menu | Click a race, gender, class and zone | make your pick (**Randomize** rolls one) |
 | Menu | **Enter** (or **Enter World**) | start the run; the world travels to the zone picked |
-| Playing | **W / S / A / D** or **arrow keys** | move the hero (locked camera: the hero faces the cursor, backpedals and strafes) |
+| Playing | **W / A / S / D** | move the hero (locked camera: the hero faces the cursor, backpedals and strafes) |
 | Playing | **Space** | jump |
 | Playing | **F** (from level 5) | your class's movement spell: Blink, Charge… aim at the cursor |
 | Playing | **C** | unlock / lock the camera |
@@ -23,3 +23,10 @@
 The camera follows the hero, locked top-down by default (laptop-friendly). **C** unlocks it so a
 mouse drag swings and tilts it; **C** again snaps it back. In the menu it slowly orbits the
 preview hero. Your race, gender, class and zone are remembered across reloads.
+
+
+## Planned Player 2 (not implemented yet)
+
+- Move: **Arrow keys**
+- Jump: **Right Ctrl**
+- Player 2 will need their own upgrade selection and health; these keys do not control a second character in the current build.
