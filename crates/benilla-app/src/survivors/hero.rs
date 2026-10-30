@@ -209,16 +209,16 @@ pub(super) fn drive_hero(
             {
                 dir = super::auto::steer(auto);
             } else if *phase.get() == Phase::Playing && run.dead_t.is_none() {
-                if keys.any_pressed([KeyCode::KeyW, KeyCode::ArrowUp]) {
+                if keys.pressed(KeyCode::KeyW) {
                     dir.z -= 1.0;
                 }
-                if keys.any_pressed([KeyCode::KeyS, KeyCode::ArrowDown]) {
+                if keys.pressed(KeyCode::KeyS) {
                     dir.z += 1.0;
                 }
-                if keys.any_pressed([KeyCode::KeyA, KeyCode::ArrowLeft]) {
+                if keys.pressed(KeyCode::KeyA) {
                     dir.x -= 1.0;
                 }
-                if keys.any_pressed([KeyCode::KeyD, KeyCode::ArrowRight]) {
+                if keys.pressed(KeyCode::KeyD) {
                     dir.x += 1.0;
                 }
                 // A connected controller can drive the same hero with the left stick. Keyboard
