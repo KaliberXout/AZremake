@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>KothanX Arena: Master Conny Goku Vs Kapten Bobby Kalsong</title>
+<style>
+:root{color-scheme:dark;--gold:#f4c66a;--ink:#100d18;--panel:#171321;--line:#59472d}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#080710;color:#f4ead5;font-family:Georgia,serif}
+#game{display:block;width:100%;height:100%;touch-action:none;background:#0b0a13}
+#hud{position:fixed;inset:0;pointer-events:none;text-shadow:0 2px 3px #000}
+.top{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:min(560px,70vw);text-align:center}
+#clock{font-size:clamp(20px,3vw,32px);color:var(--gold);letter-spacing:.12em}
+#progress{height:9px;border:1px solid #8e6b35;background:#1a1420;margin-top:5px;border-radius:8px;overflow:hidden}
+#progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7e301d,#f5c15b)}
+#players{position:absolute;left:16px;top:16px;display:flex;gap:10px;flex-direction:column}
+.pbar{width:clamp(150px,21vw,245px);padding:8px 10px;background:#100e19d9;border:1px solid #70572f;border-radius:8px}
+.pname{font-size:13px;color:var(--gold);margin-bottom:4px}.track{height:8px;background:#31202a;border-radius:8px;overflow:hidden}.hp{height:100%;background:linear-gradient(90deg,#8c1d29,#e44b50)}.xp{height:4px;background:#28213a;margin-top:4px}.xp i{display:block;height:100%;background:#6ec9f3;width:0}
+#rightHud{position:absolute;right:16px;top:16px;text-align:right;font-size:13px;color:#e8d6ae;line-height:1.6}
+#toast{position:absolute;top:24%;left:50%;transform:translateX(-50%);font-size:clamp(18px,3vw,30px);color:#ffe39a;opacity:0;transition:opacity .2s;text-align:center}
+#hint{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font:12px system-ui;color:#d6c7a3;background:#100e19b8;padding:6px 12px;border-radius:20px;white-space:nowrap}
+.screen{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 40%,#33213bdb,#080710f5 72%);z-index:5;padding:20px}
+.panel{width:min(720px,96vw);max-height:92vh;overflow:auto;text-align:center;padding:clamp(20px,4vw,42px);border:1px solid #8d6c38;border-radius:14px;background:linear-gradient(145deg,#21192bfa,#100e18fa);box-shadow:0 0 0 4px #09070d,0 18px 80px #000}
+h1{margin:0 auto 8px;color:#ffd77f;font-size:clamp(25px,5vw,48px);line-height:1.08;text-shadow:0 3px #5a2818,0 0 25px #d77b2c66;max-width:650px}
+.sub{color:#d2bd94;margin:0 0 24px;font-size:15px}
+.row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:14px 0}
+button,input{font:inherit;border-radius:8px;border:1px solid #9b793d;padding:12px 18px}
+button{background:linear-gradient(#70502b,#3a291d);color:#fff0c9;cursor:pointer;min-width:155px;box-shadow:inset 0 1px #ffffff22}
+button:hover{filter:brightness(1.22)}button:disabled{opacity:.5;cursor:wait}
+input{background:#0b0912;color:#fff;text-align:center;width:180px;text-transform:uppercase;letter-spacing:.18em}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}
+.card{padding:18px 12px;border:1px solid #8b6c3e;background:linear-gradient(#292039,#100e18);border-radius:10px;cursor:pointer;min-width:0}
+.card:hover{border-color:#ffe19a;transform:translateY(-3px)}.card b{display:block;color:#ffda89;font-size:18px;margin-bottom:8px}.card span{font:13px/1.45 system-ui;color:#d8c9ac}
+.charrow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0}
+.char{padding:14px;border:1px solid #745b38;border-radius:10px;background:#100e19}.char b{color:#ffd47e}.char p{font:13px/1.4 system-ui;color:#c9bda8;margin:8px 0 0}
+#status{font:13px system-ui;color:#d3bd8b;min-height:20px;margin-top:12px}
+.small{font:12px/1.5 system-ui;color:#a99b85;margin-top:18px}
+.hidden{display:none!important}
+@media(max-width:600px){.cards{grid-template-columns:1fr}.charrow{grid-template-columns:1fr}#rightHud{top:auto;bottom:46px;right:10px;font-size:11px}.top{top:8px}.pbar{width:140px;padding:6px}#players{left:8px;top:8px}#hint{font-size:10px;max-width:94vw;white-space:normal;text-align:center}}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud" class="hidden">
+ <div id="players"></div>
+ <div class="top"><div id="clock">00:00</div><div id="progress"><i id="runbar"></i></div></div>
+ <div id="rightHud"><div id="kills">Kills: 0</div><div id="level">Party level: 1</div><div id="wave">The Dark Portal stirs…</div></div>
+ <div id="toast"></div>
+ <div id="hint">P1: WASD + SPACE · P2: ARROWS + RIGHT CTRL · ESC: pause</div>
+</div>
+<section id="menu" class="screen">
+ <div class="panel">
+  <h1>KothanX Arena:<br>Master Conny Goku Vs Kapten Bobby Kalsong</h1>
+  <p class="sub">Azeroth is falling. Survive the endless siege.</p>
+  <div class="charrow">
+   <div class="char"><b>MASTER CONNY GOKU · ROGUE</b><p>Instant Transmission · Kamehameha · Spirit Bomb<br>Fast movement, critical strikes and arcane ki.</p></div>
+   <div class="char"><b>KAPTEN BOBBY KALSONG · WARRIOR</b><p>Captain's Charge · Underpants Uppercut · Heroic Slam<br>Heavy armor, wide swings and heroic endurance.</p></div>
+  </div>
+  <div class="row"><button id="solo">Start solo · Conny</button><button id="couch">Local co-op · 2 players</button></div>
+  <div class="row"><button id="host">Create online room</button><input id="roomInput" maxlength="6" placeholder="ROOM CODE"><button id="join">Join room</button></div>
+  <div id="status">Choose a mode to enter the arena.</div>
+  <p class="small">Built as an original fan-made browser game. No Blizzard game files or artwork are bundled.</p>
+ </div>
+</section>
+<section id="levelup" class="screen hidden"><div class="panel"><h1>Choose your boon</h1><p class="sub" id="levelsub">A new power awakens.</p><div class="cards" id="choices"></div></div></section>
+<section id="pause" class="screen hidden"><div class="panel"><h1>Battle paused</h1><p class="sub">Catch your breath, champion.</p><div class="row"><button id="resume">Resume</button><button id="restart">Restart run</button><button id="quit">Return to menu</button></div></div></section>
+<section id="end" class="screen hidden"><div class="panel"><h1 id="endtitle">Defeated</h1><p class="sub" id="endtext"></p><div class="row"><button id="again">Play again</button><button id="back">Main menu</button></div></div></section>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id), canvas=$('game'),ctx=canvas.getContext('2d');
+let W=innerWidth,H=innerHeight,DPR=1,mode='solo',peer=null,conn=null,isHost=false,remoteKeys={},remoteSnapshot=null;
+let state='menu',last=0,elapsed=0,kills=0,spawn=0,bossAt=300,shake=0,toastT=0,levelTarget=0;
+const keys=new Set(),rand=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const upgrades=[
+ ['Ki Mastery','Increase all damage by 22%.','damage',1.22],['Fleet Footwork','Move 13% faster.','speed',1.13],['Dragonhide','Increase maximum health by 25 and heal 25.','health',25],['Arcane Focus','Reduce attack cooldowns by 16%.','haste',.84],['Critical Edge','Gain 8% critical strike chance.','crit',.08],['Vampiric Rune','Recover 1.5% of damage dealt as health.','leech',.015],['Battle Fury','Gain an extra projectile on basic attacks.','extra',1],['Fortune of Elwynn','Gain 20% more experience.','xp',1.2],['Titan Grip','Increase area damage by 25%.','area',1.25]];
+const names=['Fel Hound','Scourge Ghoul','Twilight Cultist','Blackrock Brute','Void Wraith','Dread Drake'];
+const S={players:[],enemies:[],shots:[],gems:[],effects:[],kills:0,elapsed:0,level:1,xp:0,xpNext:12,spawn:0,bossAt:300,paused:false,upgrade:null};
+function resize(){DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=W*DPR;canvas.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0)}
+addEventListener('resize',resize);resize();
+function player(id){return {id,name:id===1?'Master Conny Goku':'Kapten Bobby Kalsong',x:W/2+(id===1?-24:24),y:H/2,r:14,hp:id===1?100:150,max:id===1?100:150,speed:id===1?205:165,damage:id===1?18:26,cd:0,ability:0,level:1,xp:0,xpNext:12,stats:{damage:1,speed:1,health:0,haste:1,crit:.05,leech:0,extra:0,xp:1,area:1},color:id===1?'#42c8ff':'#f3d36a',alive:true,inv:0,kills:0}}
+function reset(n=1){S.players=[player(1)];if(n===2)S.players.push(player(2));S.enemies=[];S.shots=[];S.gems=[];S.effects=[];S.kills=0;S.elapsed=0;S.level=1;S.xp=0;S.xpNext=12;S.spawn=0;S.bossAt=300;S.upgrade=null;elapsed=0;kills=0;spawn=0;bossAt=300;shake=0;remoteKeys={};remoteSnapshot=null;$('hud').classList.remove('hidden');hideScreens();state='playing';announce('The Dark Portal opens!')}
+function hideScreens(){['menu','levelup','pause','end'].forEach(x=>$(x).classList.add('hidden'))}
+function announce(t){$('toast').textContent=t;$('toast').style.opacity=1;toastT=2}
+function start(n,m='solo'){mode=m;reset(n);if(m==='host')connectHost();if(m==='join')connectJoin($('roomInput').value.trim().toUpperCase())}
+function showMenu(){disconnect();state='menu';$('hud').classList.add('hidden');hideScreens();$('menu').classList.remove('hidden');$('status').textContent='Choose a mode to enter the arena.'}
+$('solo').onclick=()=>start(1);$('couch').onclick=()=>start(2);
+$('host').onclick=()=>start(2,'host');$('join').onclick=()=>{const c=$('roomInput').value.trim().toUpperCase();if(c.length!==6){$('status').textContent='Enter the six-character room code.';return}start(2,'join')};
+function code(){return Math.random().toString(36).slice(2,8).toUpperCase()}
+function connectHost(){if(!window.Peer){$('status').textContent='Online connection library did not load.';return}const c=code();isHost=true;peer=new Peer('kothanx-'+c);$('status').textContent='Creating room…';peer.on('open',()=>{$('status').textContent='Room code: '+c+' — share it with your friend.';announce('Room '+c+' is ready')});peer.on('connection',c=>{conn=c;conn.on('open',()=>{conn.send({type:'hello',room:c});$('status').textContent='Player 2 connected.';announce('A champion has joined!')});conn.on('data',d=>{if(d.type==='input')remoteKeys=d.keys||{};if(d.type==='upgrade'&&S.upgrade)applyUpgrade(d.index)})});peer.on('error',e=>$('status').textContent='Online room error: '+e.type)}
+function connectJoin(c){if(!window.Peer){$('status').textContent='Online connection library did not load.';return}isHost=false;peer=new Peer();$('status').textContent='Connecting to '+c+'…';peer.on('open',()=>{conn=peer.connect('kothanx-'+c,{reliable:true});conn.on('open',()=>{$('status').textContent='Connected. You control Kapten Bobby Kalsong.';conn.send({type:'hello'})});conn.on('data',d=>{if(d.type==='snapshot')remoteSnapshot=d;if(d.type==='end'){state='ended';endScreen(d.won)}});conn.on('error',()=> $('status').textContent='Could not connect to that room.')});peer.on('error',e=>$('status').textContent='Room connection failed: '+e.type)}
+function disconnect(){try{conn&&conn.close();peer&&peer.destroy()}catch(e){}conn=null;peer=null;isHost=false}
+function snapshot(){return {type:'snapshot',elapsed:S.elapsed,kills:S.kills,players:S.players.map(p=>({...p,stats:undefined})),enemies:S.enemies.map(e=>({...e})),shots:S.shots.map(s=>({...s})),gems:S.gems.map(g=>({...g})),level:S.level}}
+function onlineTick(){if(mode==='host'&&conn&&conn.open&&Math.floor(S.elapsed*15)!==Math.floor((S.elapsed-.017)*15))conn.send(snapshot());if(mode==='join'&&conn&&conn.open){conn.send({type:'input',keys:readKeys(2)});if(remoteSnapshot){S.elapsed=remoteSnapshot.elapsed;S.kills=remoteSnapshot.kills;S.players=remoteSnapshot.players;S.enemies=remoteSnapshot.enemies;S.shots=remoteSnapshot.shots;S.gems=remoteSnapshot.gems;S.level=remoteSnapshot.level}}}
+function readKeys(id){const k=id===1?['KeyW','KeyS','KeyA','KeyD','Space']:['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ControlRight'];return {up:keys.has(k[0]),down:keys.has(k[1]),left:keys.has(k[2]),right:keys.has(k[3]),dash:keys.has(k[4])}}
+function movePlayer(p,dt,k){if(!p.alive)return;let dx=(k.right?1:0)-(k.left?1:0),dy=(k.down?1:0)-(k.up?1:0),l=Math.hypot(dx,dy)||1;p.x=clamp(p.x+dx/l*p.speed*p.stats.speed*dt,24,W-24);p.y=clamp(p.y+dy/l*p.speed*p.stats.speed*dt,75,H-25);p.inv=Math.max(0,p.inv-dt);p.cd-=dt;p.ability-=dt;if(k.dash&&p.ability<=0){p.ability=8;p.inv=.5;const d=Math.hypot(dx,dy)||1;p.x=clamp(p.x+(dx||0)/d*125,24,W-24);p.y=clamp(p.y+(dy||0)/d*125,75,H-25);S.effects.push({x:p.x,y:p.y,r:8,max:70,t:.35,color:p.color});announce(p.id===1?'INSTANT TRANSMISSION!':"CAPTAIN'S CHARGE!")}if(p.cd<=0){autoAttack(p);p.cd=(p.id===1?.72:.95)*p.stats.haste}}
+function autoAttack(p){const target=S.enemies.filter(e=>e.hp>0).sort((a,b)=>dist(p,a)-dist(p,b))[0];if(!target||dist(p,target)>390)return;const a=Math.atan2(target.y-p.y,target.x-p.x),n=1+p.stats.extra;for(let i=0;i<n;i++){const ang=a+(i-(n-1)/2)*.13;S.shots.push({x:p.x,y:p.y,vx:Math.cos(ang)*(p.id===1?430:350),vy:Math.sin(ang)*(p.id===1?430:350),r:p.id===1?5:7,damage:p.damage*p.stats.damage*(p.id===1?1:1.25)*(Math.random()<p.stats.crit?2:1),life:1.4,owner:p.id,color:p.color,area:p.stats.area})}S.effects.push({x:p.x,y:p.y,r:5,max:19,t:.12,color:p.color})}
+function spawnEnemy(boss=false){const side=Math.floor(rand(0,4));let x=side===0?-30:side===1?W+30:rand(0,W),y=side===2?-30:side===3?H+30:rand(80,H);let t=Math.floor(rand(0,Math.min(names.length,2+S.elapsed/100)));let scale=1+S.elapsed/180;S.enemies.push({x,y,r:boss?34:rand(11,18),hp:(boss?1800:24+S.elapsed*.22)*scale,max:(boss?1800:24+S.elapsed*.22)*scale,speed:(boss?48:rand(42,75)+S.elapsed*.18),damage:boss?30:boss?18:8+S.elapsed*.015,name:boss?'DREAD LORD':names[t],boss,color:boss?'#b44de3':['#76a34d','#a9a9a9','#9e67c5','#a96a42','#6a8fca','#ba583c'][t],xp:boss?40:Math.ceil(rand(1,3)),hit:0})}
+function hitEnemy(e,dmg,owner){e.hp-=dmg;e.hit=.1;if(e.hp<=0){S.kills++;const p=S.players.find(x=>x.id===owner);if(p)p.kills++;S.gems.push({x:e.x,y:e.y,r:5,value:e.xp});S.effects.push({x:e.x,y:e.y,r:5,max:e.boss?90:35,t:.3,color:e.color});if(e.boss){announce('DREAD LORD SLAIN!');for(let i=0;i<8;i++)S.gems.push({x:e.x+rand(-30,30),y:e.y+rand(-30,30),r:7,value:8})}}}
+function collect(p,g){const d=dist(p,g);if(d<90){g.x+=(p.x-g.x)/Math.max(d,1)*240*.016;g.y+=(p.y-g.y)/Math.max(d,1)*240*.016}if(d<p.r+g.r+4){p.xp+=g.value*p.stats.xp;g.dead=true;while(p.xp>=p.xpNext){p.xp-=p.xpNext;p.level++;p.xpNext=Math.floor(p.xpNext*1.32+4);if(mode!=='join')openUpgrade(p)}}}
+function openUpgrade(p){if(S.upgrade)return;S.upgrade=p.id;state='levelup';$('levelsub').textContent=p.name+' reached level '+p.level+'. Choose one upgrade.';const shuffled=[...upgrades].sort(()=>Math.random()-.5).slice(0,3);$('choices').innerHTML='';shuffled.forEach((u,i)=>{const b=document.createElement('button');b.className='card';b.innerHTML='<b>'+u[0]+'</b><span>'+u[1]+'</span>';b.onclick=()=>{applyUpgrade(i,shuffled);};$('choices').appendChild(b)});S._offers=shuffled;$('levelup').classList.remove('hidden')}
+function applyUpgrade(i,offers=S._offers){if(!S.upgrade||!offers||!offers[i])return;const p=S.players.find(x=>x.id===S.upgrade);if(!p)return;const u=offers[i];if(u[2]==='health'){p.max+=u[3];p.hp=Math.min(p.max,p.hp+u[3])}else if(u[2]==='speed')p.stats.speed*=u[3];else if(u[2]==='xp')p.stats.xp*=u[3];else if(u[2]==='haste')p.stats.haste*=u[3];else if(u[2]==='crit')p.stats.crit+=u[3];else if(u[2]==='leech')p.stats.leech+=u[3];else if(u[2]==='extra')p.stats.extra+=u[3];else p.stats[u[2]]*=u[3];if(mode==='host'&&conn&&conn.open)conn.send({type:'upgradeApplied'});S.upgrade=null;$('levelup').classList.add('hidden');state='playing';announce(u[0]+' acquired!')}
+function update(dt){if(state!=='playing'||mode==='join')return;S.elapsed+=dt;elapsed=S.elapsed;S.spawn-=dt;S.bossAt-=dt;shake=Math.max(0,shake-dt*20);if(toastT>0){toastT-=dt;if(toastT<=0)$('toast').style.opacity=0}
+S.players.forEach(p=>{if(mode==='host'&&p.id===2)movePlayer(p,dt,remoteKeys);else movePlayer(p,dt,readKeys(p.id))});
+if(S.spawn<=0){spawnEnemy(false);if(S.elapsed>90&&Math.random()<.35)spawnEnemy(false);S.spawn=Math.max(.18,1.05-S.elapsed/180)}
+if(S.bossAt<=0){spawnEnemy(true);S.bossAt=300;announce('A DREAD LORD HAS ENTERED THE ARENA!')}
+for(const e of S.enemies){const target=S.players.filter(p=>p.alive).sort((a,b)=>dist(e,a)-dist(e,b))[0];if(!target)continue;let d=dist(e,target)||1;e.x+=(target.x-e.x)/d*e.speed*dt;e.y+=(target.y-e.y)/d*e.speed*dt;e.hit=Math.max(0,e.hit-dt);if(d<e.r+target.r&&target.inv<=0){target.hp-=e.damage*dt;shake=3;if(target.hp<=0){target.hp=0;target.alive=false;announce(target.name+' has fallen!')}}}
+for(const s of S.shots){s.x+=s.vx*dt;s.y+=s.vy*dt;s.life-=dt;for(const e of S.enemies){if(e.hp>0&&Math.hypot(e.x-s.x,e.y-s.y)<e.r+s.r){hitEnemy(e,s.damage,s.owner);s.life=0;break}}}
+S.shots=S.shots.filter(s=>s.life>0&&s.x>-60&&s.x<W+60&&s.y>-60&&s.y<H+60);
+S.enemies=S.enemies.filter(e=>e.hp>0);
+for(const p of S.players)if(p.alive)S.gems.forEach(g=>{if(!g.dead)collect(p,g)});
+S.gems=S.gems.filter(g=>!g.dead);
+S.effects.forEach(f=>{f.t-=dt;f.r+=(f.max-f.r)*dt*10});S.effects=S.effects.filter(f=>f.t>0);
+if(S.players.every(p=>!p.alive)){state='ended';endScreen(false);return}
+if(S.elapsed>=1200){state='ended';endScreen(true);return}
+onlineTick();updateHud()}
+function updateHud(){ $('clock').textContent=Math.floor(S.elapsed/60).toString().padStart(2,'0')+':'+Math.floor(S.elapsed%60).toString().padStart(2,'0');$('runbar').style.width=(S.elapsed/1200*100)+'%';$('kills').textContent='Kills: '+S.kills;$('level').textContent='Party: '+S.players.map(p=>'Lv.'+p.level).join(' / ');$('wave').textContent=S.elapsed<300?'The Scourge approaches':S.elapsed<600?'The Legion invades':S.elapsed<900?'The Void awakens':'The final assault';$('players').innerHTML=S.players.map(p=>'<div class="pbar"><div class="pname">'+p.name+' · Lv '+p.level+'</div><div class="track"><div class="hp" style="width:'+p.hp/p.max*100+'%"></div></div><div class="xp"><i style="width:'+p.xp/p.xpNext*100+'%"></i></div></div>').join('')}
+function draw(){ctx.clearRect(0,0,W,H);if(mode==='join'&&remoteSnapshot){drawSnapshot(remoteSnapshot);requestAnimationFrame(draw);return}const ox=shake?rand(-shake,shake):0,oy=shake?rand(-shake,shake):0;ctx.save();ctx.translate(ox,oy);drawArena();S.gems.forEach(g=>{ctx.fillStyle='#67d9ff';ctx.beginPath();ctx.moveTo(g.x,g.y-g.r);ctx.lineTo(g.x+g.r,g.y);ctx.lineTo(g.x,g.y+g.r);ctx.lineTo(g.x-g.r,g.y);ctx.fill()});S.shots.forEach(s=>{ctx.fillStyle=s.color;ctx.shadowBlur=14;ctx.shadowColor=s.color;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0});S.enemies.forEach(drawEnemy);S.players.forEach(drawPlayer);S.effects.forEach(f=>{ctx.globalAlpha=clamp(f.t/.3,0,1);ctx.strokeStyle=f.color;ctx.lineWidth=3;ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1});ctx.restore();requestAnimationFrame(draw)}
+function drawArena(){ctx.fillStyle='#11101b';ctx.fillRect(0,0,W,H);const tile=64;for(let y=0;y<H;y+=tile)for(let x=0;x<W;x+=tile){ctx.fillStyle=((x/tile+y/tile)%2?'#141321':'#171522');ctx.fillRect(x,y,tile,tile);ctx.strokeStyle='#292235';ctx.strokeRect(x,y,tile,tile)}ctx.strokeStyle='#76562c';ctx.lineWidth=3;ctx.strokeRect(8,68,W-16,H-76);ctx.fillStyle='#3e2b40';for(let i=0;i<18;i++){const x=(i*137)%W,y=80+(i*83)%(H-100);ctx.beginPath();ctx.arc(x,y,2+(i%3),0,Math.PI*2);ctx.fill()}}
+function drawPlayer(p){if(!p.alive)return;ctx.save();ctx.translate(p.x,p.y);ctx.globalAlpha=p.inv>0&&Math.floor(p.inv*18)%2?.4:1;ctx.fillStyle='#0009';ctx.beginPath();ctx.ellipse(0,8,16,8,0,0,Math.PI*2);ctx.fill();if(p.id===1){ctx.fillStyle='#247bb3';ctx.beginPath();ctx.arc(0,0,14,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e7c6a0';ctx.beginPath();ctx.arc(0,-4,8,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f1a52c';ctx.beginPath();ctx.moveTo(-8,-10);ctx.lineTo(-4,-24);ctx.lineTo(0,-12);ctx.lineTo(5,-25);ctx.lineTo(9,-9);ctx.fill();ctx.strokeStyle='#8ce8ff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,19,0,Math.PI*2);ctx.stroke()}else{ctx.fillStyle='#e8d66b';ctx.beginPath();ctx.ellipse(0,1,16,18,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e8b993';ctx.beginPath();ctx.arc(0,-8,9,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.fillRect(-13,4,26,7);ctx.fillStyle='#b22c36';ctx.fillRect(-13,11,26,3);ctx.strokeStyle='#fff2a5';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,21,0,Math.PI*2);ctx.stroke()}ctx.restore()}
+function drawEnemy(e){ctx.save();ctx.translate(e.x,e.y);ctx.fillStyle='#0009';ctx.beginPath();ctx.ellipse(0,7,e.r,e.r*.55,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=e.hit>0?'#fff':e.color;ctx.beginPath();ctx.arc(0,0,e.r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f6e7c7';ctx.beginPath();ctx.arc(-e.r*.3,-e.r*.15,2.5,0,Math.PI*2);ctx.arc(e.r*.3,-e.r*.15,2.5,0,Math.PI*2);ctx.fill();if(e.boss){ctx.strokeStyle='#d89aff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,e.r+5,0,Math.PI*2);ctx.stroke()}ctx.restore();if(e.boss||e.hp<e.max){ctx.fillStyle='#240e19';ctx.fillRect(e.x-e.r,e.y-e.r-9,e.r*2,4);ctx.fillStyle='#e3484b';ctx.fillRect(e.x-e.r,e.y-e.r-9,e.r*2*clamp(e.hp/e.max,0,1),4)}}
+function drawSnapshot(s){ctx.clearRect(0,0,W,H);drawArena();(s.gems||[]).forEach(g=>{ctx.fillStyle='#67d9ff';ctx.fillRect(g.x-4,g.y-4,8,8)});(s.shots||[]).forEach(a=>{ctx.fillStyle=a.color;ctx.beginPath();ctx.arc(a.x,a.y,a.r,0,Math.PI*2);ctx.fill()});(s.enemies||[]).forEach(drawEnemy);(s.players||[]).forEach(drawPlayer)}
+function endScreen(won){$('endtitle').textContent=won?'AZEROTH IS SAVED!':'THE ARENA HAS FALLEN';$('endtext').textContent='Survived '+Math.floor(S.elapsed/60)+'m '+Math.floor(S.elapsed%60)+'s · '+S.kills+' enemies defeated.';$('end').classList.remove('hidden');$('hud').classList.add('hidden');if(mode==='host'&&conn&&conn.open)conn.send({type:'end',won})}
+$('resume').onclick=()=>{state='playing';$('pause').classList.add('hidden')};$('restart').onclick=()=>start(mode==='solo'?1:2,mode);$('quit').onclick=showMenu;$('again').onclick=()=>start(mode==='solo'?1:2,mode);$('back').onclick=showMenu;
+addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','ControlRight'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.code==='Escape'&&state==='playing'){state='paused';$('pause').classList.remove('hidden')}else if(e.code==='Escape'&&state==='paused')$('resume').click()});
+addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>keys.clear());
+function frame(t){const dt=Math.min((t-last)/1000||0,.04);last=t;if(state==='playing')update(dt);draw();requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+})();
+</script>
+</body></html>
