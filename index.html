@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KothanX Arena</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,Segoe UI,sans-serif}*{box-sizing:border-box}body{margin:0;background:#090d18;color:#eef3ff;display:grid;place-items:center;min-height:100vh;padding:16px}.wrap{width:min(100%,1000px)}header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}h1{font-size:clamp(22px,4vw,34px);margin:0;letter-spacing:.04em}button{background:#273653;color:white;border:1px solid #52688f;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer}button:hover{background:#354b72}.hud{display:flex;gap:14px;flex-wrap:wrap;padding:10px 12px;background:#141d30;border:1px solid #2b3a59;border-radius:10px;margin-bottom:10px}.hud span{color:#a9bddf}.stage{position:relative;border:1px solid #354567;border-radius:12px;overflow:hidden;background:#0b1324}canvas{display:block;width:100%;height:auto;touch-action:none}.overlay{position:absolute;inset:0;display:grid;place-items:center;background:#080d18d9;padding:20px;text-align:center}.panel{max-width:580px;background:#131e33;border:1px solid #40577f;border-radius:14px;padding:22px}.panel h2{margin:0 0 8px}.panel p{color:#c0cce2;line-height:1.5}.choices{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:16px}.hidden{display:none}.small{font-size:13px;color:#9fb0ce}.bar{height:7px;background:#26334d;border-radius:10px;overflow:hidden;min-width:100px}.bar i{display:block;height:100%;background:#55d69a;width:100%}
+</style>
+</head>
+<body><main class="wrap">
+<header><h1>KOTHANX ARENA</h1><button id="restart">Restart run</button></header>
+<div class="hud"><div>HP <b id="hp">100</b></div><div>Level <b id="level">1</b></div><div>XP <b id="xp">0 / 5</b></div><div>Time <b id="time">0:00</b></div><div>Enemies <b id="count">0</b></div></div>
+<div class="stage"><canvas id="game" width="960" height="600"></canvas>
+<div class="overlay" id="menu"><section class="panel"><h2>Choose your fighter</h2><p>Survive the arena, collect experience, and let your signature attack automatically strike nearby enemies.</p><div class="choices"><button data-class="conny">Master Conny Goku</button><button data-class="bobby">Kapten Bobby Kalsong</button></div><p class="small">Player 1: WASD to move · Player 2: Arrow keys to move · Gamepads supported</p></section></div>
+<div class="overlay hidden" id="levelup"><section class="panel"><h2>Level up!</h2><p>Choose an upgrade for this run.</p><div class="choices" id="upgrades"></div></section></div>
+<div class="overlay hidden" id="over"><section class="panel"><h2>Run ended</h2><p id="summary"></p><button id="again">Play again</button></section></div>
+</div>
+<p class="small">Prototype build · Keyboard co-op: P1 WASD, P2 arrows. Connect gamepads for analog movement. Abilities auto-fire.</p>
+</main>
+<script>
+(()=>{
+const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d'),W=canvas.width,H=canvas.height;
+const $=id=>document.getElementById(id);
+let state='menu',players=[],enemies=[],orbs=[],shots=[],elapsed=0,last=0,spawn=0,xp=0,level=1,need=5,upgrades={damage:1,speed:1,health:0,rate:1},keys={},pads=[];
+const classes={conny:{name:'Master Conny Goku',color:'#f39b35',accent:'#ffe08a',hp:120,damage:18,rate:.72,speed:210,skill:'Kamehameha'},bobby:{name:'Kapten Bobby Kalsong',color:'#54b8ed',accent:'#d5f5ff',hp:145,damage:15,rate:.86,speed:190,skill:'Underwear Uppercut'}};
+function reset(){players=[];enemies=[];orbs=[];shots=[];elapsed=0;spawn=0;xp=0;level=1;need=5;upgrades={damage:1,speed:1,health:0,rate:1};$('menu').classList.remove('hidden');$('levelup').classList.add('hidden');$('over').classList.add('hidden');state='menu';hud()}
+function start(kind){const c=classes[kind];players=[{kind,x:W*.46,y:H*.53,r:17,hp:c.hp,max:c.hp,damage:c.damage,rate:c.rate,cd:0,speed:c.speed,alive:true,face:0},{kind:null,x:W*.54,y:H*.53,r:16,hp:0,max:0,damage:0,rate:1,cd:0,speed:0,alive:false,face:0}];players[0].kind=kind;state='play';$('menu').classList.add('hidden');last=performance.now();requestAnimationFrame(loop)}
+function addSecond(kind){const c=classes[kind];players[1]={kind,x:W*.54,y:H*.53,r:17,hp:c.hp,max:c.hp,damage:c.damage,rate:c.rate,cd:0,speed:c.speed,alive:true,face:0}}
+function hud(){$('hp').textContent=players.filter(p=>p.alive).map(p=>Math.ceil(p.hp)).join(' / ')||'—';$('level').textContent=level;$('xp').textContent=xp+' / '+need;$('time').textContent=Math.floor(elapsed/60)+':'+String(Math.floor(elapsed%60)).padStart(2,'0');$('count').textContent=enemies.length}
+function choose(kind){if(!players.length){start(kind);return}if(!players[1].alive)addSecond(kind)}
+document.querySelectorAll('[data-class]').forEach(b=>b.onclick=()=>choose(b.dataset.class));
+$('restart').onclick=reset;$('again').onclick=reset;
+window.addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault()});
+window.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+function vec(p,i){let x=0,y=0;if(i===0){x=(keys.d?1:0)-(keys.a?1:0);y=(keys.s?1:0)-(keys.w?1:0)}else{x=(keys.arrowright?1:0)-(keys.arrowleft?1:0);y=(keys.arrowdown?1:0)-(keys.arrowup?1:0)}
+const gp=navigator.getGamepads?.()[i];if(gp){const ax=gp.axes[0]||0,ay=gp.axes[1]||0;if(Math.hypot(ax,ay)>.18){x=ax;y=ay}}
+const l=Math.hypot(x,y)||1;return [x/l,y/l,Math.min(1,Math.hypot(x,y))]}
+function spawnEnemy(){const side=Math.floor(Math.random()*4);let x=side===0?0:side===1?W:Math.random()*W,y=side===2?0:side===3?H:Math.random()*H;const hp=26+elapsed*.5;enemies.push({x,y,r:12+Math.min(8,elapsed/50),hp,max:hp,speed:45+Math.min(65,elapsed*.35),damage:9})}
+function fire(p){let target=null,d=1e9;for(const e of enemies){const z=Math.hypot(e.x-p.x,e.y-p.y);if(z<d){d=z;target=e}}if(!target||d>330)return;const a=Math.atan2(target.y-p.y,target.x-p.x);shots.push({x:p.x,y:p.y,vx:Math.cos(a)*440,vy:Math.sin(a)*440,damage:p.damage,r:6,life:.8,owner:p.kind})}
+function gain(){xp++;if(xp>=need){xp-=need;level++;need=Math.ceil(need*1.35+2);pauseLevel()}}
+function pauseLevel(){state='level';$('levelup').classList.remove('hidden');const opts=[['damage','Power up','Increase signature attack damage.'],['rate','Faster attacks','Reduce attack cooldown.'],['speed','Quick feet','Move faster around the arena.'],['health','Extra stamina','Restore health and increase max health.']];$('upgrades').innerHTML='';opts.forEach(([id,name,desc])=>{const b=document.createElement('button');b.textContent=name;b.title=desc;b.onclick=()=>{upgrades[id]++;for(const p of players)if(p.alive){if(id==='damage')p.damage*=1.28;if(id==='rate')p.rate*=.88;if(id==='speed')p.speed*=1.1;if(id==='health'){p.max+=20;p.hp=Math.min(p.max,p.hp+35)}}$('levelup').classList.add('hidden');state='play';last=performance.now();requestAnimationFrame(loop)};$('upgrades').append(b)})}
+function update(dt){elapsed+=dt;spawn+=dt;while(spawn>(Math.max(.35,1.5-elapsed*.008))){spawnEnemy();spawn=0}for(let i=0;i<players.length;i++){const p=players[i];if(!p?.alive)continue;const [x,y,m]=vec(p,i);p.x=Math.max(p.r,Math.min(W-p.r,p.x+x*p.speed*m*dt));p.y=Math.max(p.r,Math.min(H-p.r,p.y+y*p.speed*m*dt));p.cd-=dt;if(p.cd<=0){fire(p);p.cd=p.rate/upgrades.rate}}
+for(const e of enemies){let target=players.filter(p=>p.alive).sort((a,b)=>Math.hypot(a.x-e.x,a.y-e.y)-Math.hypot(b.x-e.x,b.y-e.y))[0];if(!target)continue;const a=Math.atan2(target.y-e.y,target.x-e.x);e.x+=Math.cos(a)*e.speed*dt;e.y+=Math.sin(a)*e.speed*dt;if(Math.hypot(target.x-e.x,target.y-e.y)<e.r+target.r){target.hp-=e.damage*dt;if(target.hp<=0)target.alive=false}}
+for(const s of shots){s.x+=s.vx*dt;s.y+=s.vy*dt;s.life-=dt;for(const e of enemies)if(e.hp>0&&Math.hypot(e.x-s.x,e.y-s.y)<e.r+s.r){e.hp-=s.damage;s.life=0}}
+shots=shots.filter(s=>s.life>0&&s.x>-20&&s.x<W+20&&s.y>-20&&s.y<H+20);
+enemies=enemies.filter(e=>{if(e.hp<=0){orbs.push({x:e.x,y:e.y,r:6});return false}return true});
+for(const o of orbs){const p=players.filter(p=>p.alive).sort((a,b)=>Math.hypot(a.x-o.x,a.y-o.y)-Math.hypot(b.x-o.x,b.y-o.y))[0];if(p){const d=Math.hypot(p.x-o.x,p.y-o.y);if(d<100){o.x+=(p.x-o.x)*Math.min(1,dt*4);o.y+=(p.y-o.y)*Math.min(1,dt*4)}if(d<p.r+o.r+3){o.got=true;gain()}}}orbs=orbs.filter(o=>!o.got);
+if(!players.some(p=>p.alive)){state='over';$('summary').textContent='You reached level '+level+' and survived '+Math.floor(elapsed)+' seconds.';$('over').classList.remove('hidden')}
+hud()}
+function draw(){ctx.clearRect(0,0,W,H);ctx.fillStyle='#0b1426';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#1a2943';ctx.lineWidth=1;for(let x=0;x<W;x+=48){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let y=0;y<H;y+=48){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+for(const o of orbs){ctx.fillStyle='#73e6ad';ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,7);ctx.fill()}
+for(const s of shots){ctx.fillStyle=s.owner==='conny'?'#ffd46b':'#8be4ff';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill()}
+for(const e of enemies){ctx.fillStyle='#d95562';ctx.beginPath();ctx.arc(e.x,e.y,e.r,0,7);ctx.fill();ctx.fillStyle='#3a1825';ctx.fillRect(e.x-e.r,e.y-e.r-8,e.r*2,4);ctx.fillStyle='#ff8290';ctx.fillRect(e.x-e.r,e.y-e.r-8,e.r*2*Math.max(0,e.hp/e.max),4)}
+for(let i=0;i<players.length;i++){const p=players[i];if(!p?.alive)continue;const c=classes[p.kind];ctx.fillStyle=c.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();ctx.fillStyle=c.accent;ctx.beginPath();ctx.arc(p.x,p.y-4,p.r*.45,0,7);ctx.fill();ctx.fillStyle='#152238';ctx.fillRect(p.x-20,p.y-p.r-12,40,5);ctx.fillStyle='#62e6a4';ctx.fillRect(p.x-20,p.y-p.r-12,40*Math.max(0,p.hp/p.max),5);ctx.fillStyle='#fff';ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText(i===0?'P1':'P2',p.x,p.y+p.r+14)}
+}
+function loop(t){if(state!=='play')return;const dt=Math.min(.04,(t-last)/1000||0);last=t;update(dt);draw();if(state==='play')requestAnimationFrame(loop)}
+draw();reset();
+})();
+</script></body></html>
