@@ -45,11 +45,11 @@ static MOBILITY: &[(u8, Mobility)] = &[
         1,
         Mobility {
             spell: 100,
-            name: "Charge",
+            name: "Captain's Charge",
             kind: Move::Charge(25.0),
             cooldown: 8.0,
             secs: 1.5,
-            desc: "Charge the nearest enemy within 25 yards, stunning it.",
+            desc: "Rush the nearest enemy within 25 yards and stun it with heroic force.",
         },
     ),
     (
@@ -78,11 +78,11 @@ static MOBILITY: &[(u8, Mobility)] = &[
         4,
         Mobility {
             spell: 2983,
-            name: "Sprint",
+            name: "Instant Transmission",
             kind: Move::Haste(1.8),
             cooldown: 15.0,
             secs: 4.0,
-            desc: "Run 80% faster for 4 sec.",
+            desc: "Vanish in a flash of energy and move 80% faster for 4 sec.",
         },
     ),
     (
